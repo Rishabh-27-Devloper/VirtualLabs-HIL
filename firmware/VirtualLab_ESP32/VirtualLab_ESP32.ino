@@ -330,6 +330,7 @@ void TaskNetwork(void * pvParameters) {
     }
     webSocket.onEvent(webSocketEvent);
     webSocket.setReconnectInterval(2000);
+    webSocket.enableHeartbeat(15000, 4000, 2);
   }
 
   unsigned long lastSend = 0;
@@ -373,7 +374,7 @@ void TaskNetwork(void * pvParameters) {
         webSocket.sendTXT(json);
       }
     }
-    vTaskDelay(1 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
@@ -436,7 +437,7 @@ void TaskHardware(void * pvParameters) {
       xSemaphoreGive(dataMutex);
     }
 
-    vTaskDelay(10 / portTICK_PERIOD_MS); // 100 Hz hardware loop
+    vTaskDelay(pdMS_TO_TICKS(10)); // 100 Hz hardware loop
   }
 }
 
@@ -445,11 +446,11 @@ void setup() {
   Serial.begin(115200);
   dataMutex = xSemaphoreCreateMutex();
 
-  // Create Core 0 (Network & Web Server) Task
+  // Create Core 0 (Network & Web Server) Task with 16KB stack for mbedTLS
   xTaskCreatePinnedToCore(
     TaskNetwork,
     "TaskNetwork",
-    10240,
+    16384,
     NULL,
     1,
     NULL,
