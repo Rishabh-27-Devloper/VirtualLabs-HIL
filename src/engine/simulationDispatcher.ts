@@ -55,7 +55,7 @@ export class SimulationDispatcher {
   private hilState: HilConnectionState = {
     connected: false,
     deviceId: null,
-    serverUrl: 'ws://localhost:8000/ws/ui',
+    serverUrl: 'wss://virtuallabs-hil.onrender.com/ws/ui',
     lastPacketMs: null,
     roundtripMs: null,
     packetsPerSecond: 0,

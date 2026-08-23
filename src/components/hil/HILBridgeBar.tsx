@@ -15,10 +15,11 @@ export const HILBridgeBar: React.FC = () => {
   const hilState = useCircuitStore((s) => s.hilState);
   const connectHIL = useCircuitStore((s) => s.connectHIL);
   const disconnectHIL = useCircuitStore((s) => s.disconnectHIL);
+  const updateHILServerUrl = useCircuitStore((s) => s.updateHILServerUrl);
   const injectHILIngress = useCircuitStore((s) => s.injectHILIngress);
   const components = useCircuitStore((s) => s.components);
 
-  const [serverUrl, setServerUrl] = useState(hilState.serverUrl || 'ws://localhost:8000/ws/ui');
+  const [serverUrl, setServerUrl] = useState(hilState.serverUrl || 'wss://virtuallabs-hil.onrender.com/ws/ui');
   const [deviceId, setDeviceId] = useState(hilState.deviceId || 'esp32_lab_01');
   const [activeTab, setActiveTab] = useState<'monitor' | 'simulator' | 'logs'>('monitor');
 
@@ -198,7 +199,10 @@ export const HILBridgeBar: React.FC = () => {
                 <input
                   type="text"
                   value={serverUrl}
-                  onChange={(e) => setServerUrl(e.target.value)}
+                  onChange={(e) => {
+                    setServerUrl(e.target.value);
+                    updateHILServerUrl(e.target.value);
+                  }}
                   className="w-full bg-slate-900 border border-slate-750 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono text-xs outline-none focus:border-orange-500"
                 />
               </div>
@@ -213,8 +217,41 @@ export const HILBridgeBar: React.FC = () => {
               </div>
             </div>
 
+            {/* Quick Presets */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-[10px] text-slate-400 font-semibold">Presets:</span>
+              <button
+                onClick={() => {
+                  const url = 'wss://virtuallabs-hil.onrender.com/ws/ui';
+                  setServerUrl(url);
+                  updateHILServerUrl(url);
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono transition border ${
+                  serverUrl.includes('onrender.com')
+                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-300 font-bold'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                ☁️ Render Cloud (Default)
+              </button>
+              <button
+                onClick={() => {
+                  const url = 'ws://localhost:8000/ws/ui';
+                  setServerUrl(url);
+                  updateHILServerUrl(url);
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono transition border ${
+                  serverUrl.includes('localhost:8000')
+                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-bold'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                💻 Local Gateway (Dev)
+              </button>
+            </div>
+
             <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
-              <span className="text-[10px] text-slate-500 font-mono">
+              <span className="text-[10px] text-slate-500 font-mono truncate max-w-sm">
                 Subscribed Route: {serverUrl} ({deviceId})
               </span>
               <div className="flex gap-2">
@@ -227,7 +264,10 @@ export const HILBridgeBar: React.FC = () => {
                   </button>
                 ) : (
                   <button
-                    onClick={() => connectHIL(serverUrl, deviceId)}
+                    onClick={() => {
+                      updateHILServerUrl(serverUrl);
+                      connectHIL(serverUrl, deviceId);
+                    }}
                     className="px-3 py-1.5 rounded-lg bg-orange-600/30 hover:bg-orange-600/50 border border-orange-500 text-orange-300 font-bold transition flex items-center gap-1.5 shadow-sm"
                   >
                     <Wifi className="w-3.5 h-3.5" /> Connect to Gateway

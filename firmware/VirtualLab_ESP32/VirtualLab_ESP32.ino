@@ -60,8 +60,8 @@ SemaphoreHandle_t dataMutex;
 
 String cfg_ssid       = "ShuklaG";
 String cfg_password   = "@n@nd$hukl@";
-String cfg_serverHost = "192.168.1.10";
-int    cfg_serverPort = 8000;
+String cfg_serverHost = "virtuallabs-hil.onrender.com";
+int    cfg_serverPort = 443;
 String cfg_deviceId   = "esp32_lab_01";
 int    cfg_interval   = 33; // ms (~30 Hz)
 
@@ -303,8 +303,12 @@ void TaskNetwork(void * pvParameters) {
   server.begin();
 
   if (!isAPMode) {
-    // Start WebSocket Client to FastAPI Gateway
-    webSocket.begin(cfg_serverHost.c_str(), cfg_serverPort, "/ws/esp32");
+    // Start WebSocket Client to FastAPI Gateway (SSL on port 443, standard on other ports)
+    if (cfg_serverPort == 443) {
+      webSocket.beginSSL(cfg_serverHost.c_str(), cfg_serverPort, "/ws/esp32");
+    } else {
+      webSocket.begin(cfg_serverHost.c_str(), cfg_serverPort, "/ws/esp32");
+    }
     webSocket.onEvent(webSocketEvent);
     webSocket.setReconnectInterval(2000);
   }

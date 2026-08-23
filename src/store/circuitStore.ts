@@ -96,6 +96,7 @@ export interface CircuitState {
 
   connectHIL: (url?: string, deviceId?: string) => void;
   disconnectHIL: () => void;
+  updateHILServerUrl: (url: string) => void;
   injectHILIngress: (inputs: Record<string, number>) => void;
 
   loadPreset: (presetName: string) => void;
@@ -399,7 +400,13 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     hilState: {
       connected: false,
       deviceId: 'esp32_lab_01',
-      serverUrl: 'ws://localhost:8000/ws/ui',
+      serverUrl: (() => {
+        try {
+          return localStorage.getItem('virtuallab_hil_server') || 'wss://virtuallabs-hil.onrender.com/ws/ui';
+        } catch {
+          return 'wss://virtuallabs-hil.onrender.com/ws/ui';
+        }
+      })(),
       lastPacketMs: null,
       roundtripMs: null,
       packetsPerSecond: 0,
@@ -778,6 +785,15 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
       if (dispatcher) {
         dispatcher.disconnectHIL();
       }
+    },
+    updateHILServerUrl: (url: string) => {
+      try {
+        localStorage.setItem('virtuallab_hil_server', url);
+      } catch {}
+      set((state) => ({
+        hilState: { ...state.hilState, serverUrl: url },
+      }));
+      logger.info('hil', `Updated HIL Gateway URL preference: ${url}`);
     },
     injectHILIngress: (inputs: Record<string, number>) => {
       if (dispatcher) {

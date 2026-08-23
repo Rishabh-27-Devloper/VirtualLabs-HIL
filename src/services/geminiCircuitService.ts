@@ -27,7 +27,17 @@ export interface AIGenerationResponse {
 }
 
 const LOCAL_STORAGE_KEY_POOL = 'virtuallab_gemini_key_pool';
-const BACKEND_URL = 'http://localhost:8000';
+const DEFAULT_RENDER_HTTP = 'https://virtuallabs-hil.onrender.com';
+
+export function getBackendHttpUrl(): string {
+  try {
+    const savedWs = localStorage.getItem('virtuallab_hil_server');
+    if (savedWs) {
+      return savedWs.replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://').replace(/\/ws\/ui\/?$/i, '');
+    }
+  } catch {}
+  return DEFAULT_RENDER_HTTP;
+}
 
 export function getLocalStoredKeys(): string[] {
   try {
@@ -51,7 +61,7 @@ export function saveLocalStoredKeys(keys: string[]) {
 
 export async function fetchBackendKeyStatus(): Promise<KeyStatusInfo | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/ai/keys-status`, { method: 'GET' });
+    const res = await fetch(`${getBackendHttpUrl()}/api/ai/keys-status`, { method: 'GET' });
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
@@ -61,7 +71,7 @@ export async function fetchBackendKeyStatus(): Promise<KeyStatusInfo | null> {
 
 export async function saveKeysToBackend(keys: string[]): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/ai/save-keys`, {
+    const res = await fetch(`${getBackendHttpUrl()}/api/ai/save-keys`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keys }),
@@ -85,7 +95,7 @@ export async function requestAICircuitGeneration(
 
   // 1. Try Python Backend First (Secure on device + automatic failover)
   try {
-    const res = await fetch(`${BACKEND_URL}/api/ai/generate-circuit`, {
+    const res = await fetch(`${getBackendHttpUrl()}/api/ai/generate-circuit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
