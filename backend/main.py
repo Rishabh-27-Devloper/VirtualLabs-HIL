@@ -38,6 +38,19 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def api_root():
+    return {
+        "status": "online",
+        "service": "VirtualLab-HIL Gateway",
+        "version": "2.0.0",
+        "health": "/api/health",
+        "docs": "/docs",
+        "ws_ui": "/ws/ui",
+        "ws_esp32": "/ws/esp32",
+    }
+
+
 # ─── WebSocket Endpoints ─────────────────────────────────────
 
 @app.websocket("/ws/ui")
