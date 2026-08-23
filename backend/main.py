@@ -110,25 +110,22 @@ async def websocket_esp32_endpoint(websocket: WebSocket):
     print(f"[HIL Gateway] ESP32 hardware connected on /ws/esp32 (device_id: '{device_id}')")
 
     try:
-        # First message from ESP32 is usually its device identifier or registration
-        init_raw = await websocket.receive_text()
-        try:
-            init_msg = json.loads(init_raw)
-            device_id = init_msg.get("device_id", "esp32_lab_01")
-            await bridge.register_esp32_device(websocket, device_id)
-            if "inputs" in init_msg:
-                await bridge.route_ingress_to_ui(init_msg, websocket)
-        except Exception:
-            pass
-
         while True:
             raw_packet = await websocket.receive_text()
             try:
                 packet = json.loads(raw_packet)
             except Exception:
                 continue
+            if not isinstance(packet, dict):
+                continue
+            
             dev_id = packet.get("device_id", device_id)
-            await bridge.route_ingress_to_ui(packet, websocket)
+            if dev_id != device_id:
+                device_id = dev_id
+                await bridge.register_esp32_device(websocket, device_id)
+
+            if "inputs" in packet:
+                await bridge.route_ingress_to_ui(packet, websocket)
 
     except WebSocketDisconnect:
         print(f"[HIL Gateway] ESP32 device '{device_id}' disconnected cleanly.")

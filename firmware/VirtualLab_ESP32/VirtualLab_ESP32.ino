@@ -196,16 +196,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
       Serial.printf("[WS ERROR] SSL / Socket error: %s\n", (payload != NULL) ? (char*)payload : "Handshake/Connection Rejected");
       break;
     case WStype_CONNECTED:
-      Serial.println("[WS] Connected to VirtualLab-HIL Gateway!");
-      // Send handshake registration
-      {
-        StaticJsonDocument<256> doc;
-        doc["type"] = "register";
-        doc["device_id"] = cfg_deviceId;
-        String json;
-        serializeJson(doc, json);
-        webSocket.sendTXT(json);
-      }
+      Serial.println("[WS] Connected to VirtualLab-HIL Gateway! Telemetry streaming active.");
       break;
     case WStype_TEXT:
       {
