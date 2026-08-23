@@ -322,7 +322,7 @@ void TaskNetwork(void * pvParameters) {
     if (cfg_serverPort == 443 || cleanHost.endsWith(".onrender.com")) {
       Serial.printf("[WS] Connecting via WSS (SSL 443) to: %s/ws/esp32\n", cleanHost.c_str());
       // Pass protocol="" to prevent Sec-WebSocket-Protocol mismatch
-      webSocket.beginSSL(cleanHost.c_str(), 443, "/ws/esp32", (const uint8_t*)NULL, "");
+      webSocket.beginSSL(cleanHost.c_str(), 443, "/ws/esp32", "", "");
       // NOTE: Do NOT include trailing \r\n as WebSocketsClient appends its own NEW_LINE
       String originHeader = "Origin: https://" + cleanHost;
       webSocket.setExtraHeaders(originHeader.c_str());
