@@ -192,6 +192,9 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
     case WStype_DISCONNECTED:
       Serial.println("[WS] Disconnected from Gateway.");
       break;
+    case WStype_ERROR:
+      Serial.printf("[WS ERROR] SSL / Socket error: %s\n", (payload != NULL) ? (char*)payload : "Handshake/Connection Rejected");
+      break;
     case WStype_CONNECTED:
       Serial.println("[WS] Connected to VirtualLab-HIL Gateway!");
       // Send handshake registration
@@ -285,6 +288,10 @@ void TaskNetwork(void * pvParameters) {
     isAPMode = false;
     Serial.printf("\n[Wi-Fi] Connected! IP Address: %s\n", WiFi.localIP().toString().c_str());
     Serial.printf("[Web UI] Settings Dashboard available at http://%s/\n", WiFi.localIP().toString().c_str());
+
+    // Synchronize system time for TLS/SSL certificate validation
+    configTime(0, 0, "pool.ntp.org", "time.google.com");
+    Serial.println("[Time] NTP time synchronization initialized.");
   } else {
     // Launch Captive Portal AP Mode
     isAPMode = true;
@@ -303,11 +310,32 @@ void TaskNetwork(void * pvParameters) {
   server.begin();
 
   if (!isAPMode) {
-    // Start WebSocket Client to FastAPI Gateway (SSL on port 443, standard on other ports)
-    if (cfg_serverPort == 443) {
-      webSocket.beginSSL(cfg_serverHost.c_str(), cfg_serverPort, "/ws/esp32");
+    // Sanitize hostname (strip protocol prefix, trailing slashes, and embedded port)
+    String cleanHost = cfg_serverHost;
+    cleanHost.trim();
+    cleanHost.replace("https://", "");
+    cleanHost.replace("http://", "");
+    cleanHost.replace("wss://", "");
+    cleanHost.replace("ws://", "");
+    int slashIdx = cleanHost.indexOf('/');
+    if (slashIdx != -1) {
+      cleanHost = cleanHost.substring(0, slashIdx);
+    }
+    int colonIdx = cleanHost.indexOf(':');
+    if (colonIdx != -1) {
+      cfg_serverPort = cleanHost.substring(colonIdx + 1).toInt();
+      cleanHost = cleanHost.substring(0, colonIdx);
+    }
+
+    // Start WebSocket Client to FastAPI Gateway (SSL on port 443 or *.onrender.com)
+    if (cfg_serverPort == 443 || cleanHost.endsWith(".onrender.com")) {
+      Serial.printf("[WS] Connecting via WSS (SSL 443) to: %s/ws/esp32\n", cleanHost.c_str());
+      webSocket.beginSSL(cleanHost.c_str(), 443, "/ws/esp32");
+      String extraHeaders = "Origin: https://" + cleanHost + "\r\n";
+      webSocket.setExtraHeaders(extraHeaders.c_str());
     } else {
-      webSocket.begin(cfg_serverHost.c_str(), cfg_serverPort, "/ws/esp32");
+      Serial.printf("[WS] Connecting via Plain WS to: %s:%d/ws/esp32\n", cleanHost.c_str(), cfg_serverPort);
+      webSocket.begin(cleanHost.c_str(), cfg_serverPort, "/ws/esp32");
     }
     webSocket.onEvent(webSocketEvent);
     webSocket.setReconnectInterval(2000);
