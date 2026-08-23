@@ -321,12 +321,15 @@ void TaskNetwork(void * pvParameters) {
     // Start WebSocket Client to FastAPI Gateway (SSL on port 443 or *.onrender.com)
     if (cfg_serverPort == 443 || cleanHost.endsWith(".onrender.com")) {
       Serial.printf("[WS] Connecting via WSS (SSL 443) to: %s/ws/esp32\n", cleanHost.c_str());
-      webSocket.beginSSL(cleanHost.c_str(), 443, "/ws/esp32");
-      String extraHeaders = "Origin: https://" + cleanHost + "\r\n";
-      webSocket.setExtraHeaders(extraHeaders.c_str());
+      // Pass protocol="" to prevent Sec-WebSocket-Protocol mismatch
+      webSocket.beginSSL(cleanHost.c_str(), 443, "/ws/esp32", (const uint8_t*)NULL, "");
+      // NOTE: Do NOT include trailing \r\n as WebSocketsClient appends its own NEW_LINE
+      String originHeader = "Origin: https://" + cleanHost;
+      webSocket.setExtraHeaders(originHeader.c_str());
     } else {
       Serial.printf("[WS] Connecting via Plain WS to: %s:%d/ws/esp32\n", cleanHost.c_str(), cfg_serverPort);
-      webSocket.begin(cleanHost.c_str(), cfg_serverPort, "/ws/esp32");
+      webSocket.begin(cleanHost.c_str(), cfg_serverPort, "/ws/esp32", "");
+      webSocket.setExtraHeaders("Origin: http://localhost");
     }
     webSocket.onEvent(webSocketEvent);
     webSocket.setReconnectInterval(2000);
@@ -348,30 +351,39 @@ void TaskNetwork(void * pvParameters) {
       if (webSocket.isConnected() && (now - lastSend >= (unsigned long)cfg_interval)) {
         lastSend = now;
 
-        StaticJsonDocument<512> doc;
-        doc["device_id"] = cfg_deviceId;
-        doc["timestamp_ms"] = now;
-        JsonObject inputs = doc.createNestedObject("inputs");
+        float a0 = 0, a1 = 0, a2 = 0, a3 = 0, a4 = 0, a5 = 0;
+        int d0 = 0, d1 = 0, d4 = 0, d5 = 0, d6 = 0;
 
         if (xSemaphoreTake(dataMutex, (TickType_t)5)) {
-          inputs["A0"] = latestInputs.a0;
-          inputs["A1"] = latestInputs.a1;
-          inputs["A2"] = latestInputs.a2;
-          inputs["A3"] = latestInputs.a3;
-          inputs["A4"] = latestInputs.a4;
-          inputs["A5"] = latestInputs.a5;
+          a0 = latestInputs.a0;
+          a1 = latestInputs.a1;
+          a2 = latestInputs.a2;
+          a3 = latestInputs.a3;
+          a4 = latestInputs.a4;
+          a5 = latestInputs.a5;
 
-          inputs["D0"] = latestInputs.d0;
-          inputs["D1"] = latestInputs.d1;
-          inputs["D4"] = latestInputs.d4;
-          inputs["D5"] = latestInputs.d5;
-          inputs["D6"] = latestInputs.d6;
+          d0 = latestInputs.d0;
+          d1 = latestInputs.d1;
+          d4 = latestInputs.d4;
+          d5 = latestInputs.d5;
+          d6 = latestInputs.d6;
           xSemaphoreGive(dataMutex);
         }
 
-        String json;
-        serializeJson(doc, json);
-        webSocket.sendTXT(json);
+        // Fast, zero-heap-allocation JSON format to protect TLS memory
+        char jsonBuf[384];
+        int len = snprintf(
+          jsonBuf, sizeof(jsonBuf),
+          "{\"device_id\":\"%s\",\"timestamp_ms\":%lu,\"inputs\":{\"A0\":%.2f,\"A1\":%.2f,\"A2\":%.2f,\"A3\":%.2f,\"A4\":%.2f,\"A5\":%.2f,\"D0\":%d,\"D1\":%d,\"D4\":%d,\"D5\":%d,\"D6\":%d}}",
+          cfg_deviceId.c_str(),
+          now,
+          a0, a1, a2, a3, a4, a5,
+          d0, d1, d4, d5, d6
+        );
+
+        if (len > 0 && len < (int)sizeof(jsonBuf)) {
+          webSocket.sendTXT((uint8_t*)jsonBuf, len);
+        }
       }
     }
     vTaskDelay(pdMS_TO_TICKS(5));
