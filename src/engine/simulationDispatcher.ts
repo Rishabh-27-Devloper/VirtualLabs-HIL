@@ -49,6 +49,7 @@ export class SimulationDispatcher {
   private netLogic: Record<string, LogicLevel> = {};
   private prevClkLevels: Record<string, LogicLevel> = {};
   private inductorCurrents: Record<string, number> = {};
+  private activeHILOverrides: Record<string, number> = {};
 
   private ws: WebSocket | null = null;
   private lastEgressSentTime = 0;
@@ -164,6 +165,7 @@ export class SimulationDispatcher {
     clearDelayQueue();
     this.netLogic = {};
     this.inductorCurrents = {};
+    this.activeHILOverrides = {};
     this._resetProbes();
     logger.info('engine', 'Simulation STOPPED and clock reset to 0.000s.');
     this._notifyUpdate();
@@ -414,7 +416,8 @@ export class SimulationDispatcher {
 
     const computeStart = performance.now();
     for (let s = 0; s < subSteps; s++) {
-      const ok = this._step(subDt, {});
+      // Pass active persistent Sample-and-Hold HIL overrides into every sub-step
+      const ok = this._step(subDt, this.activeHILOverrides);
       if (!ok) {
         // Halt simulation immediately on solver error!
         this.pause();
@@ -478,7 +481,6 @@ export class SimulationDispatcher {
     this.hilState.roundtripMs = Math.round(now - sent);
     this._logHILPacket('rx_ingress', `RX Ingress (${Object.keys(packet.inputs).length} pins)`, packet.inputs);
 
-    const hilOverrides: Record<string, number> = {};
     if (this.hilState.ingressPinMap) {
       for (const [hilPin, compId] of Object.entries(this.hilState.ingressPinMap)) {
         const value = packet.inputs[hilPin];
@@ -492,25 +494,17 @@ export class SimulationDispatcher {
 
         const netId = getPinNetId(this.netlist.wires, compId, 'out');
         if (netId) {
-          hilOverrides[netId] = numVal;
+          // Sample-and-Hold: latch the latest physical hardware voltage persistently
+          this.activeHILOverrides[netId] = numVal;
           this.netLogic[netId] = comp.simState.logicState['out'];
-          this._appendProbe(netId, this.state.currentTime, numVal);
-          this._appendLogicTrace(netId, this.state.currentTime, comp.simState.logicState['out']);
         }
       }
     }
 
-    // If simulation is PAUSED or STOPPED, do not advance solver clock or send egress
-    if (this.state.status !== 'running') {
-      this._notifyUpdate();
-      return;
-    }
-
-    const dt = this.config.timeStep;
-    const ok = this._step(dt, hilOverrides);
-    if (ok) {
+    if (this.state.status === 'running') {
       this._sendHILEgress(packet.timestamp_ms || now);
     }
+    this._notifyUpdate();
   }
 
   injectHILIngress(inputs: Record<string, number>) {
