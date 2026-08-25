@@ -882,10 +882,10 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
 
         {/* ── OSCILLOSCOPE PROBE CONNECTION DISPLAY ── */}
         {kind === 'oscilloscope' && (
-          <div className="w-full flex flex-col gap-2 p-0.5">
+          <div className="w-full flex flex-col gap-2 p-0.5 overflow-hidden">
             {/* Channel Header / Selector */}
-            <div className="flex items-center justify-between gap-1 text-[10px]">
-              <span className={`font-bold uppercase tracking-tight ${isDark ? 'text-slate-400' : 'text-slate-700 font-bold'}`}>Channel:</span>
+            <div className="flex items-center justify-between gap-1.5 text-[10px] w-full min-w-0">
+              <span className={`font-bold uppercase tracking-tight shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-700 font-bold'}`}>Channel:</span>
               <select
                 value={params.scopeChannel ?? 1}
                 onChange={(e) => {
@@ -893,7 +893,7 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
                   updateComponentParams(id, { scopeChannel: ch });
                   logger.info('canvas', `Oscilloscope probe (${id}) mapped to CH ${ch}`);
                 }}
-                className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] border outline-none cursor-pointer ${
+                className={`w-32 max-w-[130px] px-2 py-0.5 rounded font-mono font-bold text-[10px] border outline-none cursor-pointer truncate ${
                   (params.scopeChannel ?? 1) === 1 ? (isDark ? 'bg-cyan-950 text-cyan-300 border-cyan-700' : 'bg-cyan-100 text-cyan-900 border-cyan-600') :
                   (params.scopeChannel ?? 1) === 2 ? (isDark ? 'bg-amber-950 text-amber-300 border-amber-700' : 'bg-amber-100 text-amber-900 border-amber-600') :
                   (params.scopeChannel ?? 1) === 3 ? (isDark ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-emerald-100 text-emerald-900 border-emerald-600') :
@@ -905,16 +905,11 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
                   { ch: 2, name: 'CH 2 (Amber)' },
                   { ch: 3, name: 'CH 3 (Emerald)' },
                   { ch: 4, name: 'CH 4 (Purple)' },
-                ].map(({ ch, name }) => {
-                  const otherOwner = Object.values(components).find(
-                    (c) => c.id !== id && c.kind === 'oscilloscope' && (c.params.scopeChannel ?? 1) === ch
-                  );
-                  return (
-                    <option key={ch} value={ch}>
-                      {name}{otherOwner ? ` (Swaps: ${otherOwner.label})` : ''}
-                    </option>
-                  );
-                })}
+                ].map(({ ch, name }) => (
+                  <option key={ch} value={ch} className="bg-slate-900 text-white font-mono">
+                    {name}
+                  </option>
+                ))}
               </select>
             </div>
 

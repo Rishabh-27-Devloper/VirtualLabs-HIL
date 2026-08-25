@@ -121,7 +121,7 @@ export const DebugConsole: React.FC = () => {
 
   return (
     <div
-      className={`fixed bottom-0 left-72 right-0 z-40 border-t transition-all duration-300 flex flex-col shadow-2xl backdrop-blur-md ${
+      className={`hidden md:flex fixed bottom-0 left-0 lg:left-72 right-0 z-20 border-t transition-all duration-300 flex-col shadow-2xl backdrop-blur-md ${
         isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'
       } ${isOpen ? 'h-64' : 'h-8'}`}
     >
