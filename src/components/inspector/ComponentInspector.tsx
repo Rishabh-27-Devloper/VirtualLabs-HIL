@@ -129,13 +129,20 @@ export const ComponentInspector: React.FC = () => {
 
   if (!comp) {
     return (
-      <aside
-        className={`w-80 h-full border-l flex flex-col backdrop-blur-xl select-none z-10 transition-colors duration-200 ${
-          isDark
-            ? 'bg-slate-950/95 border-slate-800 text-slate-100'
-            : 'bg-white/95 border-slate-200 text-slate-900 shadow-xl'
-        }`}
-      >
+      <>
+        {/* Backdrop overlay on mobile */}
+        <div
+          onClick={() => setShowInspector(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden animate-in fade-in duration-150"
+        />
+
+        <aside
+          className={`fixed inset-y-0 right-0 z-40 lg:relative lg:z-10 w-84 lg:w-80 max-w-[90vw] h-full border-l flex flex-col backdrop-blur-2xl select-none shadow-2xl lg:shadow-none transition-colors duration-200 animate-in slide-in-from-right duration-200 ${
+            isDark
+              ? 'bg-slate-950/95 border-slate-800 text-slate-100'
+              : 'bg-white/95 border-slate-200 text-slate-900 shadow-xl'
+          }`}
+        >
         {/* Header */}
         <div
           className={`p-3.5 border-b flex items-center justify-between ${
@@ -259,6 +266,7 @@ export const ComponentInspector: React.FC = () => {
           </div>
         </div>
       </aside>
+    </>
     );
   }
 
@@ -266,13 +274,20 @@ export const ComponentInspector: React.FC = () => {
   const params = comp.params;
 
   return (
-    <aside
-      className={`w-80 h-full border-l flex flex-col backdrop-blur-xl select-none z-10 transition-colors duration-200 ${
-        isDark
-          ? 'bg-slate-950/95 border-slate-800 text-slate-100'
-          : 'bg-white/95 border-slate-200 text-slate-900 shadow-xl'
-      }`}
-    >
+    <>
+      {/* Backdrop overlay on mobile */}
+      <div
+        onClick={() => setShowInspector(false)}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden animate-in fade-in duration-150"
+      />
+
+      <aside
+        className={`fixed inset-y-0 right-0 z-40 lg:relative lg:z-10 w-84 lg:w-80 max-w-[90vw] h-full border-l flex flex-col backdrop-blur-2xl select-none shadow-2xl lg:shadow-none transition-colors duration-200 animate-in slide-in-from-right duration-200 ${
+          isDark
+            ? 'bg-slate-950/95 border-slate-800 text-slate-100'
+            : 'bg-white/95 border-slate-200 text-slate-900 shadow-xl'
+        }`}
+      >
       {/* ── Header ── */}
       <div
         className={`p-3.5 border-b flex items-center justify-between ${
@@ -1802,5 +1817,6 @@ export const ComponentInspector: React.FC = () => {
         )}
       </div>
     </aside>
+  </>
   );
 };

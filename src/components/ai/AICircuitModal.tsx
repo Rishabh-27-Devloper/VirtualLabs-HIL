@@ -56,12 +56,22 @@ export const AICircuitModal: React.FC = () => {
   const show = useCircuitStore((s) => s.showAICircuitModal);
   const setShow = useCircuitStore((s) => s.setShowAICircuitModal);
   const loadGeneratedCircuit = useCircuitStore((s) => s.loadGeneratedCircuit);
+  const components = useCircuitStore((s) => s.components);
+  const edges = useCircuitStore((s) => s.edges);
+  const compCount = Object.keys(components).length;
   const theme = useCircuitStore((s) => s.theme);
   const isDark = theme === 'dark';
 
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState('gemini-3.6-flash');
-  const [appendMode, setAppendMode] = useState(false);
+  const [placementMode, setPlacementMode] = useState<'replace' | 'modify' | 'append'>('replace');
+
+  // Set default mode based on whether canvas has components
+  useEffect(() => {
+    if (compCount > 1) {
+      setPlacementMode('modify');
+    }
+  }, [compCount]);
 
   // Key Pool State
   const [keysList, setKeysList] = useState<string[]>([]);
@@ -121,12 +131,32 @@ export const AICircuitModal: React.FC = () => {
 
     try {
       setStatusMessage('Synthesizing circuit topology and pin mappings...');
-      const response = await requestAICircuitGeneration(prompt.trim(), model, keysList);
+
+      const isModifying = placementMode === 'modify' && compCount > 0;
+      const currentCircuitContext = isModifying ? {
+        components: Object.values(components).map((c) => ({
+          id: c.id,
+          kind: c.kind,
+          label: c.label,
+          params: c.params,
+        })),
+        connections: edges.map((e) => ({
+          from: `${e.source}:${e.sourceHandle || 'p'}`,
+          to: `${e.target}:${e.targetHandle || 'p'}`,
+        })),
+      } : undefined;
+
+      const response = await requestAICircuitGeneration(
+        prompt.trim(),
+        model,
+        keysList,
+        currentCircuitContext,
+      );
 
       if (response.success && response.circuit) {
         setStatusMessage('Compiling topological layout and auto-routing wires...');
         
-        loadGeneratedCircuit(response.circuit, appendMode);
+        loadGeneratedCircuit(response.circuit, placementMode === 'append');
 
         const failoverNote = response.failover_occurred
           ? ` (Switched to Key #${(response.key_index_used ?? 0) + 1} after rate limit)`
@@ -260,33 +290,51 @@ export const AICircuitModal: React.FC = () => {
 
             {/* Canvas Target Mode */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                Canvas Placement
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                <span>Canvas Action</span>
+                {compCount > 0 && <span className="text-[10px] text-purple-400 font-mono">({compCount} parts on canvas)</span>}
               </label>
-              <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+              <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
                 <button
                   type="button"
-                  onClick={() => setAppendMode(false)}
+                  onClick={() => setPlacementMode('replace')}
                   disabled={isGenerating}
-                  className={`py-1.5 rounded-lg border font-bold transition ${
-                    !appendMode
+                  className={`py-1.5 rounded-lg border font-bold transition text-center truncate px-1 ${
+                    placementMode === 'replace'
                       ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
                   }`}
+                  title="Wipe canvas and generate fresh circuit"
                 >
-                  Replace Canvas
+                  New / Replace
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAppendMode(true)}
+                  onClick={() => setPlacementMode('modify')}
+                  disabled={isGenerating || compCount === 0}
+                  className={`py-1.5 rounded-lg border font-bold transition text-center truncate px-1 ${
+                    placementMode === 'modify'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-sm ring-1 ring-purple-400/50'
+                      : compCount === 0
+                      ? 'bg-slate-900/50 text-slate-600 border-slate-800/50 cursor-not-allowed'
+                      : 'bg-slate-900 text-purple-400 border-slate-800 hover:text-purple-300'
+                  }`}
+                  title={compCount === 0 ? 'Canvas is empty — nothing to modify' : 'Modify, add to, or delete parts from the active circuit'}
+                >
+                  ✨ Modify Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlacementMode('append')}
                   disabled={isGenerating}
-                  className={`py-1.5 rounded-lg border font-bold transition ${
-                    appendMode
+                  className={`py-1.5 rounded-lg border font-bold transition text-center truncate px-1 ${
+                    placementMode === 'append'
                       ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
                   }`}
+                  title="Keep existing circuit and place new circuit beside it"
                 >
-                  + Append Circuit
+                  + Append
                 </button>
               </div>
             </div>

@@ -90,8 +90,17 @@ export async function requestAICircuitGeneration(
   prompt: string,
   model: string = 'gemini-3.6-flash',
   clientKeys: string[] = [],
+  currentCircuitContext?: {
+    components: Array<{ id: string; kind: string; label?: string; params?: Record<string, any> }>;
+    connections: Array<{ from: string; to: string }>;
+  },
 ): Promise<AIGenerationResponse> {
   const localKeys = clientKeys.length > 0 ? clientKeys : getLocalStoredKeys();
+
+  let finalPrompt = prompt;
+  if (currentCircuitContext && currentCircuitContext.components.length > 0) {
+    finalPrompt = `EXISTING CIRCUIT CONTEXT TO MODIFY:\nComponents: ${JSON.stringify(currentCircuitContext.components, null, 2)}\nConnections: ${JSON.stringify(currentCircuitContext.connections, null, 2)}\n\nUSER MODIFICATION REQUEST:\n${prompt}\n\nMODIFICATION INSTRUCTIONS:\n- Apply the requested modifications (add, delete, or modify components and reconnect wires).\n- Ensure the modified circuit is a complete, closed-loop, working schematic.\n- Return the complete updated circuit JSON.`;
+  }
 
   // 1. Try Python Backend First (Secure on device + automatic failover)
   try {
@@ -99,7 +108,7 @@ export async function requestAICircuitGeneration(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt,
+        prompt: finalPrompt,
         model,
         client_keys: localKeys.length > 0 ? localKeys : undefined,
       }),
@@ -139,7 +148,7 @@ export async function requestAICircuitGeneration(
       const apiKey = localKeys[idx];
       attempts++;
       try {
-        const circuit = await callGeminiBrowserDirect(apiKey, prompt, currModel);
+        const circuit = await callGeminiBrowserDirect(apiKey, finalPrompt, currModel);
         return {
           success: true,
           circuit,

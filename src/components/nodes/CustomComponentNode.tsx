@@ -191,12 +191,110 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
             {kind === 'zener' && <path d="M 45 5 L 50 5 M 50 25 L 55 25" />}
           </svg>
         )}
-        {(kind === 'bjt_npn' || kind === 'bjt_pnp') && (
+        {/* NPN BJT (Outward emitter arrow) */}
+        {kind === 'bjt_npn' && (
           <svg className={`w-14 h-12 stroke-2 fill-none ${isDark ? 'stroke-purple-400' : 'stroke-purple-700'}`} viewBox="0 0 60 50">
-            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-purple-500/40' : 'stroke-purple-400'} />
+            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-purple-500/40' : 'stroke-purple-300'} />
             <path d="M 10 25 L 25 25 M 25 10 L 25 40 M 25 18 L 45 8 M 25 32 L 45 42" />
-            <polygon points="43,40 45,42 41,44" className={isDark ? 'fill-purple-500' : 'fill-purple-700'} />
+            <polygon points="45,42 37,39 42,46" className={isDark ? 'fill-purple-400 stroke-none' : 'fill-purple-700 stroke-none'} />
           </svg>
+        )}
+
+        {/* PNP BJT (Inward emitter arrow pointing to Base) */}
+        {kind === 'bjt_pnp' && (
+          <svg className={`w-14 h-12 stroke-2 fill-none ${isDark ? 'stroke-purple-400' : 'stroke-purple-700'}`} viewBox="0 0 60 50">
+            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-purple-500/40' : 'stroke-purple-300'} />
+            <path d="M 10 25 L 25 25 M 25 10 L 25 40 M 25 18 L 45 8 M 25 32 L 45 42" />
+            <polygon points="26,18 34,14 31,23" className={isDark ? 'fill-purple-400 stroke-none' : 'fill-purple-700 stroke-none'} />
+          </svg>
+        )}
+
+        {/* N-Channel Enhancement MOSFET (3 broken channel segments + Inward arrow) */}
+        {kind === 'mosfet_n_enh' && (
+          <svg className={`w-14 h-12 stroke-2 fill-none ${isDark ? 'stroke-indigo-400' : 'stroke-indigo-700'}`} viewBox="0 0 60 50">
+            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-indigo-500/30' : 'stroke-indigo-300'} />
+            {/* Gate */}
+            <line x1="8" y1="25" x2="20" y2="25" />
+            <line x1="20" y1="12" x2="20" y2="38" />
+            {/* 3 Broken Channel Segments */}
+            <line x1="26" y1="10" x2="26" y2="18" />
+            <line x1="26" y1="21" x2="26" y2="29" />
+            <line x1="26" y1="32" x2="26" y2="40" />
+            {/* Drain & Source leads */}
+            <path d="M 26 14 L 46 14 L 46 8 M 26 36 L 46 36 L 46 42 M 26 25 L 46 25 L 46 36" />
+            {/* Inward Arrow */}
+            <polygon points="26,25 34,21 34,29" className={isDark ? 'fill-indigo-400 stroke-none' : 'fill-indigo-700 stroke-none'} />
+          </svg>
+        )}
+
+        {/* P-Channel Enhancement MOSFET (3 broken channel segments + Outward arrow) */}
+        {kind === 'mosfet_p_enh' && (
+          <svg className={`w-14 h-12 stroke-2 fill-none ${isDark ? 'stroke-indigo-400' : 'stroke-indigo-700'}`} viewBox="0 0 60 50">
+            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-indigo-500/30' : 'stroke-indigo-300'} />
+            {/* Gate */}
+            <line x1="8" y1="25" x2="20" y2="25" />
+            <line x1="20" y1="12" x2="20" y2="38" />
+            {/* 3 Broken Channel Segments */}
+            <line x1="26" y1="10" x2="26" y2="18" />
+            <line x1="26" y1="21" x2="26" y2="29" />
+            <line x1="26" y1="32" x2="26" y2="40" />
+            {/* Drain & Source leads */}
+            <path d="M 26 14 L 46 14 L 46 42 M 26 36 L 46 36 L 46 8 M 26 25 L 46 25 L 46 8" />
+            {/* Outward Arrow */}
+            <polygon points="38,25 30,21 30,29" className={isDark ? 'fill-indigo-400 stroke-none' : 'fill-indigo-700 stroke-none'} />
+          </svg>
+        )}
+
+        {/* N-Channel Depletion MOSFET (Solid continuous channel bar + Inward arrow) */}
+        {kind === 'mosfet_n_dep' && (
+          <svg className={`w-14 h-12 stroke-2 fill-none ${isDark ? 'stroke-teal-400' : 'stroke-teal-700'}`} viewBox="0 0 60 50">
+            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-teal-500/30' : 'stroke-teal-300'} />
+            {/* Gate */}
+            <line x1="8" y1="25" x2="20" y2="25" />
+            <line x1="20" y1="12" x2="20" y2="38" />
+            {/* Solid Channel Bar */}
+            <line x1="26" y1="10" x2="26" y2="40" strokeWidth="3.5" />
+            {/* Drain & Source leads */}
+            <path d="M 26 14 L 46 14 L 46 8 M 26 36 L 46 36 L 46 42 M 26 25 L 46 25 L 46 36" />
+            {/* Inward Arrow */}
+            <polygon points="26,25 34,21 34,29" className={isDark ? 'fill-teal-400 stroke-none' : 'fill-teal-700 stroke-none'} />
+          </svg>
+        )}
+
+        {/* P-Channel Depletion MOSFET (Solid continuous channel bar + Outward arrow) */}
+        {kind === 'mosfet_p_dep' && (
+          <svg className={`w-14 h-12 stroke-2 fill-none ${isDark ? 'stroke-teal-400' : 'stroke-teal-700'}`} viewBox="0 0 60 50">
+            <circle cx="30" cy="25" r="22" className={isDark ? 'stroke-teal-500/30' : 'stroke-teal-300'} />
+            {/* Gate */}
+            <line x1="8" y1="25" x2="20" y2="25" />
+            <line x1="20" y1="12" x2="20" y2="38" />
+            {/* Solid Channel Bar */}
+            <line x1="26" y1="10" x2="26" y2="40" strokeWidth="3.5" />
+            {/* Drain & Source leads */}
+            <path d="M 26 14 L 46 14 L 46 42 M 26 36 L 46 36 L 46 8 M 26 25 L 46 25 L 46 8" />
+            {/* Outward Arrow */}
+            <polygon points="38,25 30,21 30,29" className={isDark ? 'fill-teal-400 stroke-none' : 'fill-teal-700 stroke-none'} />
+          </svg>
+        )}
+
+        {/* Logic Analyzer Pod Symbol */}
+        {kind === 'logic_analyzer' && (
+          <div className="flex flex-col items-center gap-1 w-full py-0.5">
+            <div className={`w-full px-2 py-1 rounded-lg border flex flex-col gap-0.5 shadow-inner ${
+              isDark ? 'bg-slate-950/90 border-green-500/40 text-green-400' : 'bg-slate-900 border-green-600 text-green-300'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 font-mono text-[8px] font-bold">
+                  <Cpu className="w-2.5 h-2.5 text-green-400" />
+                  <span>LOGIC POD</span>
+                </div>
+                <span className="text-[7px] font-mono px-1 rounded bg-green-950 border border-green-800 text-green-400">4-CH</span>
+              </div>
+              <svg viewBox="0 0 80 18" className="w-full h-4">
+                <path d="M 2 14 L 15 14 L 15 4 L 35 4 L 35 14 L 55 14 L 55 4 L 78 4" fill="none" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
         )}
         {kind === 'clock_source' && (() => {
           const period = params.pulsePeriod ?? 0.001;

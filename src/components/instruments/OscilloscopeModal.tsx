@@ -609,48 +609,45 @@ export const OscilloscopeModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-1.5 sm:p-3 animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh]">
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 py-3 bg-slate-950 border-b border-slate-800 gap-3">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 bg-slate-950 border-b border-slate-800 gap-2 flex-wrap sm:flex-nowrap">
           {/* Left Title & Status */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 rounded-xl bg-cyan-950/80 border border-cyan-700 text-cyan-400 shrink-0">
-              <Activity className="w-5 h-5" />
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-cyan-950/80 border border-cyan-700 text-cyan-400 shrink-0">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <h2 className="text-sm font-bold text-white tracking-wide whitespace-nowrap">
-                  4-Channel Virtual Oscilloscope
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="text-xs sm:text-sm font-bold text-white tracking-wide whitespace-nowrap">
+                  4-Channel Scope
                 </h2>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 whitespace-nowrap shrink-0">
-                  4-CH / 100V/div Max
+                <span className="text-[9px] sm:text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 whitespace-nowrap shrink-0">
+                  4-CH
                 </span>
                 {isPaused && (
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 animate-pulse whitespace-nowrap shrink-0">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 animate-pulse whitespace-nowrap shrink-0">
                     FROZEN
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400 font-mono truncate hidden md:block">
-                Multi-Channel Transient Waveform Visualizer & Signal Analyzer
-              </p>
             </div>
           </div>
 
           {/* Action Controls & Display Mode Switcher */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto">
             {/* ⚡ AUTO / AUTOSCALE Button */}
             <button
               onClick={handleAutoScale}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.5)] transition hover:scale-105 active:scale-95 whitespace-nowrap shrink-0"
+              className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.5)] transition hover:scale-105 active:scale-95 whitespace-nowrap shrink-0"
               title="AUTO-SET: Automatically adjust Timebase, Volts/Div, and Trigger for optimal viewing"
             >
-              <Sparkles className="w-3.5 h-3.5 fill-slate-950 text-slate-950 animate-pulse" />
+              <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-slate-950 text-slate-950 animate-pulse" />
               <span>AUTO</span>
             </button>
 
-            {/* Pause / Resume Button */}
+            {/* Run / Freeze Pause Button */}
             <button
               onClick={() => {
                 if (!isPaused) {
@@ -658,88 +655,78 @@ export const OscilloscopeModal: React.FC = () => {
                 }
                 setIsPaused(!isPaused);
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap shrink-0 ${
                 isPaused
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500 shadow-sm animate-pulse'
                   : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
               }`}
               title={isPaused ? 'Resume live transient trace' : 'Freeze & pause transient trace for inspection'}
             >
-              {isPaused ? <Play className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> : <Pause className="w-3.5 h-3.5" />}
-              <span>{isPaused ? 'RESUME' : 'PAUSE'}</span>
+              {isPaused ? <Play className="w-3 h-3 fill-amber-300 text-amber-300" /> : <Pause className="w-3 h-3" />}
+              <span className="hidden sm:inline">{isPaused ? 'RESUME' : 'PAUSE'}</span>
             </button>
 
             {/* Save Waveform Image Button */}
             <button
               onClick={handleSaveImage}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 transition shadow-sm whitespace-nowrap shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 transition shadow-sm whitespace-nowrap shrink-0"
               title="Save Oscilloscope Screen as High-Resolution PNG Image"
             >
               <Camera className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Save PNG</span>
+              <span>PNG</span>
             </button>
 
-            {/* Display Mode Switcher (Overlay vs Separate Analysis) */}
+            {/* Display Mode Switcher */}
             <div className="flex items-center bg-slate-900 border border-slate-700 rounded-lg p-0.5 text-xs font-medium shrink-0">
               <button
                 onClick={() => updateScopeSettings({ displayMode: 'overlay' })}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition whitespace-nowrap ${
+                className={`px-2 py-1 rounded transition whitespace-nowrap text-[11px] ${
                   (scopeSettings.displayMode || 'overlay') === 'overlay'
                     ? 'bg-cyan-600 text-white shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white'
                 }`}
                 title="Overlay all channels on single CRT grid"
               >
-                <Layers className="w-3.5 h-3.5" /> Overlay
+                Overlay
               </button>
               <button
                 onClick={() => updateScopeSettings({ displayMode: 'split_2ch' })}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition whitespace-nowrap ${
+                className={`px-2 py-1 rounded transition whitespace-nowrap text-[11px] ${
                   scopeSettings.displayMode === 'split_2ch'
                     ? 'bg-cyan-600 text-white shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                title="Separate 2-Channel Isolated Stack"
+                title="Dual Split"
               >
-                <Columns2 className="w-3.5 h-3.5" /> Dual Split
+                Dual
               </button>
               <button
                 onClick={() => updateScopeSettings({ displayMode: 'split_4ch' })}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition whitespace-nowrap ${
+                className={`px-2 py-1 rounded transition whitespace-nowrap text-[11px] hidden sm:block ${
                   scopeSettings.displayMode === 'split_4ch'
                     ? 'bg-cyan-600 text-white shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                title="Separate 4-Channel Quad Screen"
+                title="Quad Split"
               >
-                <Columns4 className="w-3.5 h-3.5" /> Quad Split
-              </button>
-              <button
-                onClick={() => updateScopeSettings({ displayMode: 'signal_analysis' })}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition whitespace-nowrap ${
-                  scopeSettings.displayMode === 'signal_analysis'
-                    ? 'bg-purple-600 text-white shadow-sm font-semibold'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title="Separate Signal Analysis & FFT Comparative Mode"
-              >
-                <BarChart3 className="w-3.5 h-3.5" /> Analysis
+                Quad
               </button>
             </div>
 
+            {/* Close Button */}
             <button
               onClick={() => setShow(false)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition shrink-0 ml-1"
+              className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition shrink-0 ml-1"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* ── Main Work Area (Canvas + Controls Sidebar) ── */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
           {/* Canvas Screen */}
-          <div className="flex-1 bg-black relative flex flex-col items-center justify-center p-3">
+          <div className="flex-1 min-h-[250px] sm:min-h-[350px] bg-black relative flex flex-col items-center justify-center p-2 sm:p-3 shrink-0">
             <canvas
               ref={canvasRef}
               width={820}
@@ -756,36 +743,24 @@ export const OscilloscopeModal: React.FC = () => {
             )}
 
             {/* Live Channel Badges Floating Overlay */}
-            <div className="absolute top-5 left-5 flex gap-2 pointer-events-none">
+            <div className="absolute top-4 left-4 flex gap-1.5 flex-wrap pointer-events-none">
               {scopeSettings.enabled1 && ch1Node && (
-                <div className="px-2.5 py-1 rounded-md bg-cyan-950/90 border border-cyan-700 text-cyan-300 font-mono text-[11px] flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                  <span>CH1: {metrics1.vpp.toFixed(2)}Vpp ({metrics1.freq > 0 ? `${metrics1.freq.toFixed(0)}Hz` : 'DC'})</span>
+                <div className="px-2 py-0.5 rounded-md bg-cyan-950/90 border border-cyan-700 text-cyan-300 font-mono text-[10px] flex items-center gap-1 shadow-lg backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span>CH1: {metrics1.vpp.toFixed(2)}Vpp</span>
                 </div>
               )}
               {scopeSettings.enabled2 && ch2Node && (
-                <div className="px-2.5 py-1 rounded-md bg-amber-950/90 border border-amber-700 text-amber-300 font-mono text-[11px] flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span>CH2: {metrics2.vpp.toFixed(2)}Vpp ({metrics2.freq > 0 ? `${metrics2.freq.toFixed(0)}Hz` : 'DC'})</span>
-                </div>
-              )}
-              {scopeSettings.enabled3 && ch3Node && (
-                <div className="px-2.5 py-1 rounded-md bg-emerald-950/90 border border-emerald-700 text-emerald-300 font-mono text-[11px] flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span>CH3: {metrics3.vpp.toFixed(2)}Vpp</span>
-                </div>
-              )}
-              {scopeSettings.enabled4 && ch4Node && (
-                <div className="px-2.5 py-1 rounded-md bg-purple-950/90 border border-purple-700 text-purple-300 font-mono text-[11px] flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
-                  <span className="w-2 h-2 rounded-full bg-purple-400" />
-                  <span>CH4: {metrics4.vpp.toFixed(2)}Vpp</span>
+                <div className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-amber-700 text-amber-300 font-mono text-[10px] flex items-center gap-1 shadow-lg backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>CH2: {metrics2.vpp.toFixed(2)}Vpp</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* ── Controls & Signal Analysis Sidebar ── */}
-          <div className="w-96 bg-slate-950/90 border-l border-slate-800 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar text-xs">
+          <div className="w-full lg:w-96 bg-slate-950/90 border-t lg:border-t-0 lg:border-l border-slate-800 p-3 sm:p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar text-xs">
             {/* Channel Tabs */}
             <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
               {CHANNEL_COLORS.map((ch, idx) => {

@@ -55,6 +55,7 @@ export interface CircuitState {
   showMultimeter: boolean;
   showHILBridge: boolean;
   showInspector: boolean;
+  showPalette: boolean;
   showTruthTable: boolean;
 
   scopeSettings: OscilloscopeSettings;
@@ -87,6 +88,9 @@ export interface CircuitState {
   setShowMultimeter: (show: boolean) => void;
   setShowHILBridge: (show: boolean) => void;
   setShowInspector: (show: boolean) => void;
+  setShowPalette: (show: boolean) => void;
+  togglePalette: () => void;
+  toggleInspector: () => void;
   setShowTruthTable: (show: boolean) => void;
   showAICircuitModal: boolean;
   setShowAICircuitModal: (show: boolean) => void;
@@ -422,6 +426,7 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     showMultimeter: false,
     showHILBridge: false,
     showInspector: false,
+    showPalette: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
     showTruthTable: false,
 
     scopeSettings: {
@@ -733,6 +738,9 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     setShowMultimeter: (show: boolean) => set({ showMultimeter: show }),
     setShowHILBridge: (show: boolean) => set({ showHILBridge: show }),
     setShowInspector: (show: boolean) => set({ showInspector: show }),
+    setShowPalette: (show: boolean) => set({ showPalette: show }),
+    togglePalette: () => set((state) => ({ showPalette: !state.showPalette })),
+    toggleInspector: () => set((state) => ({ showInspector: !state.showInspector })),
     setShowTruthTable: (show: boolean) => set({ showTruthTable: show }),
     showAICircuitModal: false,
     setShowAICircuitModal: (show: boolean) => set({ showAICircuitModal: show }),

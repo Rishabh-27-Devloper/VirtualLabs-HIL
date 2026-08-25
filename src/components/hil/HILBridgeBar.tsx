@@ -113,7 +113,7 @@ export const HILBridgeBar: React.FC = () => {
         </div>
 
         {/* ── Top Status Stats ── */}
-        <div className="p-3 bg-slate-950/80 border-b border-slate-800 grid grid-cols-4 gap-2 text-xs shrink-0">
+        <div className="p-3 bg-slate-950/80 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs shrink-0">
           <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col items-center justify-center">
             <span className="text-[9px] text-slate-400 uppercase tracking-wider mb-0.5">Hardware Status</span>
             {hilState.connected ? (
@@ -156,7 +156,7 @@ export const HILBridgeBar: React.FC = () => {
         </div>
 
         {/* ── Navigation Tabs ── */}
-        <div className="flex items-center px-4 bg-slate-950 border-b border-slate-800 gap-1 text-xs shrink-0">
+        <div className="flex items-center px-4 bg-slate-950 border-b border-slate-800 gap-1 text-xs shrink-0 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setActiveTab('monitor')}
             className={`px-3 py-2 font-bold border-b-2 transition flex items-center gap-1.5 ${

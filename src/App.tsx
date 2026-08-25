@@ -14,7 +14,9 @@ import { HILBridgeBar } from '@/components/hil/HILBridgeBar';
 import { DebugConsole } from '@/components/debugger/DebugConsole';
 import { CircuitErrorModal } from '@/components/modals/CircuitErrorModal';
 import { SplashScreen } from '@/components/common/SplashScreen';
+import { MobileBottomBar } from '@/components/common/MobileBottomBar';
 import { useCircuitStore } from '@/store/circuitStore';
+import { getBackendHttpUrl } from '@/services/geminiCircuitService';
 
 export function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -22,6 +24,13 @@ export function App() {
   const restoreSessionFromCache = useCircuitStore((s) => s.restoreSessionFromCache);
   const theme = useCircuitStore((s) => s.theme);
   const isDark = theme === 'dark';
+
+  // Early warm-up ping to Render backend so it wakes up before user triggers HIL or AI features
+  useEffect(() => {
+    const backendUrl = getBackendHttpUrl();
+    fetch(`${backendUrl}/api/health`, { method: 'GET', mode: 'cors' }).catch(() => {});
+    fetch(`${backendUrl}/api/ai/keys-status`, { method: 'GET', mode: 'cors' }).catch(() => {});
+  }, []);
 
   // Restore active circuit session from browser cache, or load default starter circuit
   useEffect(() => {
@@ -44,7 +53,7 @@ export function App() {
 
   return (
     <div
-      className={`w-screen h-screen flex flex-col overflow-hidden select-none transition-colors duration-200 ${
+      className={`w-screen h-[100dvh] flex flex-col overflow-hidden select-none transition-colors duration-200 ${
         isDark ? 'bg-[#0a0c10] text-slate-100' : 'bg-slate-100 text-slate-900'
       }`}
     >
@@ -53,7 +62,7 @@ export function App() {
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Component Palette (Left Sidebar) */}
+        {/* Component Palette (Left Sidebar / Mobile Drawer) */}
         <ComponentPalette />
 
         {/* Interactive Circuit Canvas (React Flow) */}
@@ -61,9 +70,12 @@ export function App() {
           <CircuitCanvas />
         </main>
 
-        {/* Component Properties Inspector (Right Sidebar) */}
+        {/* Component Properties Inspector (Right Sidebar / Mobile Drawer) */}
         <ComponentInspector />
       </div>
+
+      {/* Mobile Floating Action Dock (< 768px) */}
+      <MobileBottomBar />
 
       {/* Floating Instrument Modals */}
       <OscilloscopeModal />

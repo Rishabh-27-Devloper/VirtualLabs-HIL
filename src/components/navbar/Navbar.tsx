@@ -4,6 +4,7 @@ import {
   Play, Pause, RotateCcw, Activity, Cpu, Radio, Zap,
   BookOpen, FolderOpen, FilePlus, Table2,
   Undo2, Redo2, Sun, Moon, Sliders, Sparkles,
+  Menu, X, Layers, Settings,
 } from 'lucide-react';
 import { SaveLoadCircuitModal } from '@/components/modals/SaveLoadCircuitModal';
 import { NewProjectModal } from '@/components/modals/NewProjectModal';
@@ -38,6 +39,8 @@ export const Navbar: React.FC = () => {
   const setShowHILBridge = useCircuitStore((s) => s.setShowHILBridge);
   const showInspector = useCircuitStore((s) => s.showInspector);
   const setShowInspector = useCircuitStore((s) => s.setShowInspector);
+  const showPalette = useCircuitStore((s) => s.showPalette);
+  const setShowPalette = useCircuitStore((s) => s.setShowPalette);
   const showTruthTable = useCircuitStore((s) => s.showTruthTable);
   const setShowTruthTable = useCircuitStore((s) => s.setShowTruthTable);
   const showAICircuitModal = useCircuitStore((s) => s.showAICircuitModal);
@@ -48,6 +51,7 @@ export const Navbar: React.FC = () => {
 
   const [isSaveLoadModalOpen, setIsSaveLoadModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isRunning = simulationState.status === 'running';
 
   const handleNewProjectClick = () => {
@@ -128,9 +132,9 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Simulation Controls & Undo/Redo (Center Bar) ── */}
+        {/* ── Desktop Simulation Controls & Undo/Redo (Center Bar) ── */}
         <div
-          className={`flex items-center gap-2 border rounded-lg px-2 py-1 shadow-inner shrink-0 ${
+          className={`hidden xl:flex items-center gap-2 border rounded-lg px-2 py-1 shadow-inner shrink-0 ${
             isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-100 border-slate-300'
           }`}
         >
@@ -262,8 +266,8 @@ export const Navbar: React.FC = () => {
           </button>
         </div>
 
-        {/* ── Virtual Instruments ── */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* ── Desktop Virtual Instruments ── */}
+        <div className="hidden lg:flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => setShowOscilloscope(!showOscilloscope)}
             className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border transition ${
@@ -276,7 +280,8 @@ export const Navbar: React.FC = () => {
                 : 'bg-slate-100 text-slate-600 border-slate-300 hover:text-slate-900'
             }`}
           >
-            <Activity className="w-3.5 h-3.5" /> Scope
+            <Activity className="w-3.5 h-3.5" />
+            <span>Scope</span>
           </button>
 
           <button
@@ -291,12 +296,13 @@ export const Navbar: React.FC = () => {
                 : 'bg-slate-100 text-slate-600 border-slate-300 hover:text-slate-900'
             }`}
           >
-            <Cpu className="w-3.5 h-3.5" /> Logic
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Logic</span>
           </button>
 
           <button
             onClick={() => setShowHILBridge(!showHILBridge)}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border transition ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border transition ${
               showHILBridge
                 ? isDark
                   ? 'bg-orange-950 text-orange-300 border-orange-600'
@@ -365,8 +371,8 @@ export const Navbar: React.FC = () => {
           </button>
         </div>
 
-        {/* ── Actions & Themes ── */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* ── Desktop Actions & Themes ── */}
+        <div className="hidden lg:flex items-center gap-1.5 shrink-0">
           {/* Theme Switcher */}
           <button
             onClick={toggleTheme}
@@ -390,7 +396,7 @@ export const Navbar: React.FC = () => {
             title="Start a new project (Reset canvas to default Ground)"
           >
             <FilePlus className="w-3.5 h-3.5" />
-            <span>New Project</span>
+            <span>New</span>
           </button>
 
           <button
@@ -484,7 +490,251 @@ export const Navbar: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* ── Mobile/Tablet Controls (< 1024px) ── */}
+        <div className="flex lg:hidden items-center gap-1.5">
+          {/* Quick Play/Pause */}
+          {isRunning ? (
+            <button
+              onClick={pauseSimulation}
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
+              title="Pause Simulation"
+            >
+              <Pause className="w-3.5 h-3.5 fill-slate-950" />
+              <span>{simulationState.currentTime.toFixed(1)}s</span>
+            </button>
+          ) : (
+            <button
+              onClick={startSimulation}
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-gradient-to-r from-green-500 to-emerald-400 text-slate-950 font-bold text-xs shadow-md transition"
+              title="Run Simulation"
+            >
+              <Play className="w-3.5 h-3.5 fill-slate-950" />
+              <span>Run</span>
+            </button>
+          )}
+
+          {/* Theme Switcher */}
+          <button
+            onClick={toggleTheme}
+            className={`p-1.5 rounded-lg border transition ${
+              isDark
+                ? 'bg-slate-900 text-yellow-400 border-slate-800'
+                : 'bg-slate-100 text-slate-700 border-slate-300'
+            }`}
+            title="Toggle Theme"
+          >
+            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
+          </button>
+
+          {/* Mobile Hamburger Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className={`p-2 rounded-xl border transition ${
+              isMobileMenuOpen
+                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50'
+                : isDark ? 'bg-slate-900 text-slate-200 border-slate-800' : 'bg-slate-100 text-slate-800 border-slate-300'
+            }`}
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+        </div>
       </header>
+
+      {/* ── Mobile Menu Dropdown Drawer ── */}
+      {isMobileMenuOpen && (
+        <>
+          <div
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden animate-in fade-in duration-150"
+          />
+          <div
+            className={`fixed top-14 left-0 right-0 z-30 lg:hidden p-3 border-b max-h-[85vh] overflow-y-auto shadow-2xl animate-in slide-in-from-top-2 duration-200 ${
+              isDark
+                ? 'bg-slate-950/95 border-slate-800 text-slate-100 backdrop-blur-xl'
+                : 'bg-white/95 border-slate-200 text-slate-900 backdrop-blur-xl'
+            }`}
+          >
+            <div className="space-y-3">
+              {/* Simulation Mode & Speed Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className={`p-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Mode</label>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setSimulationMode('virtual')}
+                      className={`flex-1 py-1 rounded text-xs font-semibold ${
+                        simulationState.mode === 'virtual' ? 'bg-cyan-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      Virtual
+                    </button>
+                    <button
+                      onClick={() => setSimulationMode('hil')}
+                      className={`flex-1 py-1 rounded text-xs font-semibold flex items-center justify-center gap-1 ${
+                        simulationState.mode === 'hil' ? 'bg-orange-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      <Radio className="w-3 h-3" /> HIL
+                    </button>
+                  </div>
+                </div>
+
+                <div className={`p-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Speed & Clock</label>
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={simulationState.config.speedMultiplier ?? 0.05}
+                      onChange={(e) => setSpeedMultiplier(parseFloat(e.target.value))}
+                      className="w-full bg-transparent text-xs font-mono font-bold outline-none"
+                    >
+                      <option value="0.05">0.05x Speed</option>
+                      <option value="0.1">0.1x Speed</option>
+                      <option value="0.25">0.25x Speed</option>
+                      <option value="0.5">0.5x Speed</option>
+                      <option value="1">1.0x Realtime</option>
+                    </select>
+                    <button
+                      onClick={resetSimulation}
+                      className="p-1 rounded text-slate-400 hover:text-slate-200"
+                      title="Reset Clock"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Mode */}
+              <button
+                onClick={() => setPerformanceMode(!performanceMode)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-semibold transition ${
+                  performanceMode
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                    : isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className={`w-4 h-4 ${performanceMode ? 'text-amber-400 fill-current' : 'text-slate-400'}`} />
+                  <span>Performance Mode (Low CPU)</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold">{performanceMode ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Virtual Instruments Grid */}
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">Instruments</label>
+                <div className="grid grid-cols-3 gap-1.5 font-medium text-xs">
+                  <button
+                    onClick={() => {
+                      setShowOscilloscope(!showOscilloscope);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 ${
+                      showOscilloscope ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
+                    }`}
+                  >
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    <span>Oscilloscope</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowLogicAnalyzer(!showLogicAnalyzer);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 ${
+                      showLogicAnalyzer ? 'bg-green-500/20 text-green-400 border-green-500/40' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
+                    }`}
+                  >
+                    <Cpu className="w-4 h-4 text-green-400" />
+                    <span>Logic Pod</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowHILBridge(!showHILBridge);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 ${
+                      showHILBridge ? 'bg-orange-500/20 text-orange-400 border-orange-500/40' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
+                    }`}
+                  >
+                    <Radio className="w-4 h-4 text-orange-400" />
+                    <span>HIL Bridge</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* AI & Truth Table */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setShowAICircuitModal(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-purple-900/80 to-indigo-900/80 border border-purple-600 text-purple-200 text-xs font-bold shadow-sm"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <span>✨ AI Circuit</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowTruthTable(!showTruthTable);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold ${
+                    showTruthTable ? 'bg-violet-900/40 text-violet-300 border-violet-500' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
+                  }`}
+                >
+                  <Table2 className="w-4 h-4 text-violet-400" />
+                  <span>Truth Table</span>
+                </button>
+              </div>
+
+              {/* Projects & Presets */}
+              <div className="grid grid-cols-3 gap-1.5 text-xs font-semibold pt-1 border-t border-slate-800/60">
+                <button
+                  onClick={() => {
+                    handleNewProjectClick();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="py-2 px-2 rounded-xl bg-emerald-950/60 text-emerald-300 border border-emerald-800 flex items-center justify-center gap-1"
+                >
+                  <FilePlus className="w-3.5 h-3.5" />
+                  <span>New</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsSaveLoadModalOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="py-2 px-2 rounded-xl bg-cyan-950/60 text-cyan-300 border border-cyan-800 flex items-center justify-center gap-1"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>Save/Load</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowPalette(!showPalette);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1 ${
+                    showPalette ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Parts</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <SaveLoadCircuitModal
         isOpen={isSaveLoadModalOpen}

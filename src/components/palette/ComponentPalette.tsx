@@ -8,15 +8,19 @@ import { useCircuitStore } from '@/store/circuitStore';
 import type { ComponentKind } from '@/types/circuit';
 import {
   Search, Gauge, Zap, Cpu, Activity, Sliders, Radio,
-  ChevronDown, ChevronRight, Plus,
+  ChevronDown, ChevronRight, Plus, X,
 } from 'lucide-react';
 
 export const ComponentPalette: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const addComponent = useCircuitStore((s) => s.addComponent);
+  const showPalette = useCircuitStore((s) => s.showPalette);
+  const setShowPalette = useCircuitStore((s) => s.setShowPalette);
   const theme = useCircuitStore((s) => s.theme);
   const isDark = theme === 'dark';
+
+  if (!showPalette) return null;
 
   const toggleCategory = (cat: string) => {
     setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
@@ -47,18 +51,34 @@ export const ComponentPalette: React.FC = () => {
   );
 
   return (
-    <aside
-      className={`w-72 h-full border-r flex flex-col backdrop-blur-xl select-none z-10 transition-colors duration-200 ${
-        isDark
-          ? 'bg-slate-950/90 border-slate-800 text-slate-100'
-          : 'bg-slate-50/95 border-slate-200 text-slate-900 shadow-sm'
-      }`}
-    >
-      {/* ── Search Header ── */}
-      <div className={`p-3 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-          Component Palette
-        </h2>
+    <>
+      {/* Backdrop overlay on mobile */}
+      <div
+        onClick={() => setShowPalette(false)}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden animate-in fade-in duration-150"
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 lg:relative lg:z-10 w-76 lg:w-72 max-w-[85vw] h-full border-r flex flex-col backdrop-blur-2xl select-none shadow-2xl lg:shadow-none transition-colors duration-200 animate-in slide-in-from-left duration-200 ${
+          isDark
+            ? 'bg-slate-950/95 border-slate-800 text-slate-100'
+            : 'bg-slate-50/95 border-slate-200 text-slate-900 shadow-sm'
+        }`}
+      >
+        {/* ── Search Header ── */}
+        <div className={`p-3 border-b flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Component Palette
+            </h2>
+            <button
+              onClick={() => setShowPalette(false)}
+              className="lg:hidden p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              title="Close Palette"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
           <input
@@ -149,7 +169,8 @@ export const ComponentPalette: React.FC = () => {
             </div>
           );
         })}
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 };
