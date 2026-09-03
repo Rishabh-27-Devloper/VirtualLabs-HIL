@@ -1772,6 +1772,72 @@ export const ComponentInspector: React.FC = () => {
           );
         })()}
 
+        {/* ── AUDIO SPEAKER ── */}
+        {comp.kind === 'speaker' && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Coil Impedance / Resistance
+              </label>
+              <div className="grid grid-cols-4 gap-1 font-mono text-xs">
+                {[4, 8, 16, 32].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => updateComponentParams(comp.id, { resistance: r })}
+                    className={`py-1.5 rounded-lg border font-bold transition ${
+                      (params.resistance ?? 8) === r
+                        ? 'bg-cyan-600 text-white border-cyan-500 shadow-sm'
+                        : isDark
+                        ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                        : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {r}Ω
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400 mb-1">
+                <span>Output Volume</span>
+                <span className="text-cyan-400 font-mono font-bold">{params.speakerMuted ? 'Muted' : `${params.speakerVolume ?? 50}%`}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={params.speakerMuted ? 0 : (params.speakerVolume ?? 50)}
+                onChange={(e) => updateComponentParams(comp.id, { speakerVolume: parseInt(e.target.value), speakerMuted: false })}
+                className="w-full accent-cyan-500 cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40 border border-slate-800 text-xs">
+              <span className="text-slate-300 font-medium">Mute Audio</span>
+              <input
+                type="checkbox"
+                checked={params.speakerMuted ?? false}
+                onChange={(e) => updateComponentParams(comp.id, { speakerMuted: e.target.checked })}
+                className="accent-cyan-500 w-4 h-4 cursor-pointer"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── OHMMETER ── */}
+        {comp.kind === 'ohmmeter' && (
+          <div className="space-y-3">
+            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1 font-mono">
+              <span className="text-emerald-400 font-bold block">Autoranging Bench Ohmmeter</span>
+              <p className="text-[10px] text-slate-400">
+                Measures equivalent loop resistance between Ω+ and COM probes using an internal test reference.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── HIL PINS ── */}
         {(comp.kind === 'hil_ingress' || comp.kind === 'hil_egress') && (
           <div className="space-y-3">

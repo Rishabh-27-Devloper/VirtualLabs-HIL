@@ -79,6 +79,18 @@ export const COMPONENT_REGISTRY: Record<ComponentKind, ComponentMetadata> = {
     width: 120,
     height: 85,
   },
+  junction: {
+    kind: 'junction',
+    name: 'Wire Junction (Dot)',
+    category: 'passives',
+    description: 'Electrical junction node connecting intersecting wires together.',
+    defaultParams: {},
+    pins: [
+      { id: 'p', label: '•', kind: 'analog', x: 0.5, y: 0.5 },
+    ],
+    width: 28,
+    height: 28,
+  },
 
   // ─── Sources ──────────────────────────────────────────────
   dc_voltage: {
@@ -635,8 +647,34 @@ export const COMPONENT_REGISTRY: Record<ComponentKind, ComponentMetadata> = {
     width: 150,
     height: 80,
   },
+  ohmmeter: {
+    kind: 'ohmmeter',
+    name: 'OhmMeter',
+    category: 'instruments',
+    description: 'Measures electrical resistance across two test leads with autoranging LCD display.',
+    defaultParams: { ohmmeterRange: 'auto' },
+    pins: [
+      { id: 'p', label: 'Ω+', kind: 'analog', x: 0, y: 0.5 },
+      { id: 'n', label: 'COM', kind: 'analog', x: 1, y: 0.5 },
+    ],
+    width: 170,
+    height: 95,
+  },
 
   // ─── Interactive Controls & Indicators ────────────────────
+  speaker: {
+    kind: 'speaker',
+    name: 'Audio Speaker',
+    category: 'controls',
+    description: 'Dynamic voice-coil speaker (4Ω/8Ω/16Ω/32Ω) with Web Audio sound playback.',
+    defaultParams: { resistance: 8, speakerVolume: 50, speakerMuted: false },
+    pins: [
+      { id: 'p', label: '+', kind: 'analog', x: 0, y: 0.5 },
+      { id: 'n', label: '-', kind: 'analog', x: 1, y: 0.5 },
+    ],
+    width: 165,
+    height: 95,
+  },
   switch: {
     kind: 'switch',
     name: 'SPST Toggle Switch',

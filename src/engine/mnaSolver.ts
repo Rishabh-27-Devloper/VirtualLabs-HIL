@@ -236,7 +236,21 @@ export function solveMNA(
           break;
         }
         case 'ground':
+        case 'junction':
           break;
+        case 'speaker': {
+          const R = Math.max(params.resistance ?? 8, 1);
+          stampConductance(A, p('p'), p('n'), 1 / R);
+          break;
+        }
+        case 'ohmmeter': {
+          const ni = p('p'), nj = p('n');
+          // Reference test current Itest = 1mA with 100M safety shunt for open loops
+          const Itest = 1e-3;
+          stampCurrentSource(z, ni, nj, Itest);
+          stampConductance(A, ni, nj, 1e-8);
+          break;
+        }
         case 'current_source': {
           const I = params.current ?? 0.01;
           stampCurrentSource(z, p('p'), p('n'), I);

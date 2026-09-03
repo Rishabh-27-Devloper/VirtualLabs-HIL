@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import {
   Play, Pause, RotateCcw, Activity, Cpu, Radio, Zap,
-  BookOpen, FolderOpen, FilePlus, Table2,
+  BookOpen, FolderOpen, FilePlus, Table2, LineChart,
   Undo2, Redo2, Sun, Moon, Sliders, Sparkles,
   Menu, X, Layers, Settings,
 } from 'lucide-react';
@@ -10,6 +10,8 @@ import { SaveLoadCircuitModal } from '@/components/modals/SaveLoadCircuitModal';
 import { NewProjectModal } from '@/components/modals/NewProjectModal';
 import { TruthTableModal } from '@/components/instruments/TruthTableModal';
 import { AICircuitModal } from '@/components/ai/AICircuitModal';
+import { CharacteristicCurveModal } from '@/components/instruments/CharacteristicCurveModal';
+import { APP_VERSION } from '@/version';
 
 export const Navbar: React.FC = () => {
   const theme = useCircuitStore((s) => s.theme);
@@ -43,6 +45,8 @@ export const Navbar: React.FC = () => {
   const setShowPalette = useCircuitStore((s) => s.setShowPalette);
   const showTruthTable = useCircuitStore((s) => s.showTruthTable);
   const setShowTruthTable = useCircuitStore((s) => s.setShowTruthTable);
+  const showCharacteristicCurve = useCircuitStore((s) => s.showCharacteristicCurve);
+  const setShowCharacteristicCurve = useCircuitStore((s) => s.setShowCharacteristicCurve);
   const showAICircuitModal = useCircuitStore((s) => s.showAICircuitModal);
   const setShowAICircuitModal = useCircuitStore((s) => s.setShowAICircuitModal);
   const components = useCircuitStore((s) => s.components);
@@ -125,7 +129,7 @@ export const Navbar: React.FC = () => {
                     : 'bg-cyan-50 text-cyan-700 border-cyan-300'
                 }`}
               >
-                v1.0.0
+                {APP_VERSION}
               </span>
             </div>
             <p className="text-[9px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">Mixed-Signal & HIL</p>
@@ -355,6 +359,23 @@ export const Navbar: React.FC = () => {
           >
             <Table2 className="w-3.5 h-3.5" />
             <span>Truth Table</span>
+          </button>
+
+          <button
+            onClick={() => setShowCharacteristicCurve(!showCharacteristicCurve)}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border transition ${
+              showCharacteristicCurve
+                ? isDark
+                  ? 'bg-amber-950 text-amber-300 border-amber-600'
+                  : 'bg-amber-100 text-amber-800 border-amber-400'
+                : isDark
+                ? 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200'
+                : 'bg-slate-100 text-slate-600 border-slate-300 hover:text-slate-900'
+            }`}
+            title="Open Characteristic Curve Analyzer & X-Y Parameter Sweeper"
+          >
+            <LineChart className="w-3.5 h-3.5 text-amber-400" />
+            <span>Curve</span>
           </button>
 
           <button
@@ -667,17 +688,17 @@ export const Navbar: React.FC = () => {
                 </div>
               </div>
 
-              {/* AI & Truth Table */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* AI, Truth Table & Characteristic Curve */}
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
                     setShowAICircuitModal(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-purple-900/80 to-indigo-900/80 border border-purple-600 text-purple-200 text-xs font-bold shadow-sm"
+                  className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-gradient-to-r from-purple-900/80 to-indigo-900/80 border border-purple-600 text-purple-200 text-xs font-bold shadow-sm"
                 >
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span>✨ AI Circuit</span>
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>AI Gen</span>
                 </button>
 
                 <button
@@ -685,12 +706,25 @@ export const Navbar: React.FC = () => {
                     setShowTruthTable(!showTruthTable);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-semibold ${
+                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border text-xs font-semibold ${
                     showTruthTable ? 'bg-violet-900/40 text-violet-300 border-violet-500' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
                   }`}
                 >
-                  <Table2 className="w-4 h-4 text-violet-400" />
+                  <Table2 className="w-3.5 h-3.5 text-violet-400" />
                   <span>Truth Table</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowCharacteristicCurve(!showCharacteristicCurve);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border text-xs font-semibold ${
+                    showCharacteristicCurve ? 'bg-amber-900/40 text-amber-300 border-amber-500' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
+                  }`}
+                >
+                  <LineChart className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Curve</span>
                 </button>
               </div>
 
@@ -712,7 +746,7 @@ export const Navbar: React.FC = () => {
                     setIsSaveLoadModalOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="py-2 px-2 rounded-xl bg-cyan-950/60 text-cyan-300 border border-cyan-800 flex items-center justify-center gap-1"
+                  className="py-2 px-2 rounded-xl bg-blue-950/60 text-blue-300 border border-blue-800 flex items-center justify-center gap-1"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
                   <span>Save/Load</span>
@@ -720,15 +754,13 @@ export const Navbar: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    setShowPalette(!showPalette);
+                    loadPreset('starter_rlc');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1 ${
-                    showPalette ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-300'
-                  }`}
+                  className="py-2 px-2 rounded-xl bg-purple-950/60 text-purple-300 border border-purple-800 flex items-center justify-center gap-1"
                 >
-                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Parts</span>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>RLC Demo</span>
                 </button>
               </div>
             </div>
@@ -747,6 +779,7 @@ export const Navbar: React.FC = () => {
       />
 
       <TruthTableModal />
+      <CharacteristicCurveModal />
       <AICircuitModal />
     </>
   );

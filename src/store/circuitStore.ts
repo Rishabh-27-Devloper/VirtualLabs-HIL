@@ -67,6 +67,7 @@ export interface CircuitState {
   selectComponent: (id: string | null) => void;
   selectEdge: (id: string | null) => void;
   removeEdge: (id: string) => void;
+  splitEdgeWithJunction: (edgeId: string, position?: { x: number; y: number }) => void;
 
   onNodesChange: (changes: any) => void;
   onEdgesChange: (changes: any) => void;
@@ -92,6 +93,8 @@ export interface CircuitState {
   togglePalette: () => void;
   toggleInspector: () => void;
   setShowTruthTable: (show: boolean) => void;
+  showCharacteristicCurve: boolean;
+  setShowCharacteristicCurve: (show: boolean) => void;
   showAICircuitModal: boolean;
   setShowAICircuitModal: (show: boolean) => void;
   loadGeneratedCircuit: (spec: any, appendMode?: boolean) => void;
@@ -428,6 +431,7 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     showInspector: false,
     showPalette: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
     showTruthTable: false,
+    showCharacteristicCurve: false,
 
     scopeSettings: {
       channel1NodeId: null,
@@ -610,6 +614,56 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
       logger.info('canvas', `Deleted wire connection (${id})`);
     },
 
+    splitEdgeWithJunction: (edgeId: string, position?: { x: number; y: number }) => {
+      const edge = get().edges.find((e) => e.id === edgeId);
+      if (!edge) return;
+      pushSnapshot();
+
+      let jPos = position;
+      if (!jPos) {
+        const srcNode = get().nodes.find((n) => n.id === edge.source);
+        const tgtNode = get().nodes.find((n) => n.id === edge.target);
+        if (srcNode && tgtNode) {
+          jPos = {
+            x: (srcNode.position.x + tgtNode.position.x) / 2,
+            y: (srcNode.position.y + tgtNode.position.y) / 2,
+          };
+        } else {
+          jPos = { x: 300, y: 300 };
+        }
+      }
+
+      const junctionId = get().addComponent('junction', jPos);
+
+      set((state) => {
+        const remainingEdges = state.edges.filter((e) => e.id !== edgeId);
+        const edge1: Edge = {
+          id: `wire_${edge.source}_${junctionId}_${Date.now()}`,
+          source: edge.source,
+          sourceHandle: edge.sourceHandle || 'p',
+          target: junctionId,
+          targetHandle: 'p',
+          type: 'circuitEdge',
+        };
+        const edge2: Edge = {
+          id: `wire_${junctionId}_${edge.target}_${Date.now() + 1}`,
+          source: junctionId,
+          sourceHandle: 'p',
+          target: edge.target,
+          targetHandle: edge.targetHandle || 'n',
+          type: 'circuitEdge',
+        };
+        return {
+          edges: [...remainingEdges, edge1, edge2],
+          selectedEdgeId: null,
+          selectedComponentId: junctionId,
+        };
+      });
+
+      syncNetlistWithDispatcher();
+      logger.success('canvas', `Spliced wire with Wire Junction Dot at (${Math.round(jPos.x)}, ${Math.round(jPos.y)})`);
+    },
+
     onNodesChange: (changes: any) => {
       set((state) => {
         let updatedNodes = [...state.nodes];
@@ -742,6 +796,7 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     togglePalette: () => set((state) => ({ showPalette: !state.showPalette })),
     toggleInspector: () => set((state) => ({ showInspector: !state.showInspector })),
     setShowTruthTable: (show: boolean) => set({ showTruthTable: show }),
+    setShowCharacteristicCurve: (show: boolean) => set({ showCharacteristicCurve: show }),
     showAICircuitModal: false,
     setShowAICircuitModal: (show: boolean) => set({ showAICircuitModal: show }),
 

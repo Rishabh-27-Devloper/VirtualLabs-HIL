@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Zap, Activity, Cpu, Radio, Sparkles, Heart } from 'lucide-react';
+import { APP_VERSION } from '@/version';
 
 interface SplashScreenProps {
   onFinish?: () => void;
@@ -87,7 +88,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
               VirtualLab-HIL
             </h1>
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 shadow-inner">
-              v1.0.0
+              {APP_VERSION}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 font-mono tracking-wide">

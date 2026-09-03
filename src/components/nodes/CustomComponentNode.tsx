@@ -14,8 +14,9 @@ import {
 import type { ComponentKind, ComponentParams, PinDefinition } from '@/types/circuit';
 import {
   Zap, Activity, Cpu, Sliders, ToggleLeft, ToggleRight,
-  Radio, Trash2, Gauge, RotateCw,
+  Radio, Trash2, Gauge, RotateCw, Volume2, VolumeX,
 } from 'lucide-react';
+import { audioService } from '@/services/audioService';
 import { logger } from '@/utils/logger';
 
 interface NodeData {
@@ -83,6 +84,27 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
   const posPin = probeEdge ? (probeEdge.source === id ? (probeEdge.targetHandle || 'p') : (probeEdge.sourceHandle || 'p')) : null;
   const refComp = gndEdge ? (gndEdge.source === id ? components[gndEdge.target] : components[gndEdge.source]) : null;
   const refPin = gndEdge ? (gndEdge.source === id ? (gndEdge.targetHandle || 'n') : (gndEdge.sourceHandle || 'n')) : null;
+
+  const isRunning = useCircuitStore((s) => s.simulationState.status === 'running');
+  const simTime = useCircuitStore((s) => s.simulationState.currentTime);
+
+  // Web Audio speaker synthesis hook
+  useEffect(() => {
+    if (kind === 'speaker' && isRunning) {
+      audioService.updateSpeaker(
+        id,
+        vDiff,
+        simTime,
+        params.speakerVolume ?? 50,
+        params.speakerMuted ?? false
+      );
+    } else if (kind === 'speaker') {
+      audioService.silenceSpeaker(id);
+    }
+    return () => {
+      if (kind === 'speaker') audioService.removeSpeaker(id);
+    };
+  }, [id, kind, vDiff, isRunning, simTime, params.speakerVolume, params.speakerMuted]);
 
   // Keyboard shortcut 'R' to rotate when component is selected
   useEffect(() => {
@@ -741,6 +763,31 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
   const compPins = getComponentPins(kind, params);
   const compDims = getComponentDimensions(kind, params);
 
+  if (kind === 'junction') {
+    return (
+      <div
+        onClick={() => selectComponent(id)}
+        className={`relative flex items-center justify-center w-7 h-7 rounded-full cursor-pointer transition-transform ${
+          selected ? 'scale-125' : 'hover:scale-110'
+        }`}
+      >
+        <Handle
+          type="source"
+          position={Position.Top}
+          id="p"
+          className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
+            selected
+              ? 'bg-amber-400 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.8)]'
+              : isDark
+              ? 'bg-cyan-400 border-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.6)]'
+              : 'bg-cyan-600 border-cyan-700'
+          }`}
+          style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={() => selectComponent(id)}
@@ -876,6 +923,81 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
                 : Math.abs(currentA) < 1
                 ? `${(currentA * 1000).toFixed(2)} mA`
                 : `${currentA.toFixed(3)} A`}
+            </div>
+          </div>
+        )}
+
+        {/* ── OHMMETER BENCH DISPLAY ── */}
+        {kind === 'ohmmeter' && (() => {
+          const measuredR = Math.abs(vDiff) * 1000;
+          let rLabel = '0.00 Ω';
+          if (measuredR > 20e6 || Math.abs(vDiff) > 20000) {
+            rLabel = 'O.L.';
+          } else if (measuredR >= 1e6) {
+            rLabel = `${(measuredR / 1e6).toFixed(2)} MΩ`;
+          } else if (measuredR >= 1e3) {
+            rLabel = `${(measuredR / 1e3).toFixed(2)} kΩ`;
+          } else if (measuredR >= 1) {
+            rLabel = `${measuredR.toFixed(1)} Ω`;
+          } else {
+            rLabel = `${measuredR.toFixed(2)} Ω`;
+          }
+          return (
+            <div className="w-full flex flex-col items-center gap-1.5">
+              <div className="w-full bg-[#05110d] border-2 border-emerald-800/80 rounded-lg p-2 flex flex-col items-center shadow-inner">
+                <div className="w-full flex justify-between items-center text-[9px] font-mono text-emerald-400/80 mb-0.5">
+                  <span>OHMMETER</span>
+                  <span className="text-amber-400 font-bold">AUTO</span>
+                </div>
+                <div className="text-xl font-mono font-black text-emerald-300 tracking-wider drop-shadow-[0_0_8px_rgba(52,211,153,0.7)]">
+                  {rLabel}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── AUDIO SPEAKER DISPLAY ── */}
+        {kind === 'speaker' && (
+          <div className="w-full flex flex-col items-center gap-1.5 p-1">
+            <div className="flex items-center justify-between w-full text-[10px] font-mono">
+              <span className="text-cyan-400 font-bold">
+                {params.resistance ?? 8}Ω Coil
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateComponentParams(id, { speakerMuted: !params.speakerMuted });
+                }}
+                className={`p-1 rounded transition ${
+                  params.speakerMuted
+                    ? 'bg-red-950 text-red-400 border border-red-800'
+                    : 'bg-slate-800 text-emerald-400 hover:bg-slate-700'
+                }`}
+                title={params.speakerMuted ? 'Unmute Speaker' : 'Mute Speaker'}
+              >
+                {params.speakerMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {/* Animated Speaker Graphic */}
+            <div className="relative flex items-center justify-center w-full py-0.5">
+              <svg className={`w-14 h-8 transition-all ${
+                Math.abs(vDiff) > 0.05 && !params.speakerMuted ? 'animate-pulse scale-105' : 'opacity-80'
+              }`} viewBox="0 0 60 30">
+                <path d="M 12 8 L 22 8 L 32 2 L 32 28 L 22 22 L 12 22 Z" fill={isDark ? '#334155' : '#94a3b8'} stroke={isDark ? '#64748b' : '#64748b'} strokeWidth="1.5" />
+                {Math.abs(vDiff) > 0.05 && !params.speakerMuted && (
+                  <>
+                    <path d="M 37 8 A 10 10 0 0 1 37 22" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M 43 4 A 16 16 0 0 1 43 26" fill="none" stroke="#38bdf8" strokeWidth="1.5" strokeLinecap="round" />
+                  </>
+                )}
+              </svg>
+            </div>
+
+            <div className="w-full flex items-center justify-between text-[9px] font-mono text-slate-400">
+              <span>Vol: {params.speakerMuted ? 'Muted' : `${params.speakerVolume ?? 50}%`}</span>
+              <span className="text-cyan-300 font-bold">{Math.abs(vDiff).toFixed(2)}V</span>
             </div>
           </div>
         )}

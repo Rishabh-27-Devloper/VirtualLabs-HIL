@@ -3,8 +3,8 @@
 // ============================================================
 
 export type ComponentKind =
-  // Passives
-  | 'resistor' | 'capacitor' | 'inductor' | 'ground'
+  // Passives & Wiring
+  | 'resistor' | 'capacitor' | 'inductor' | 'ground' | 'junction'
   // Sources
   | 'dc_voltage' | 'ac_voltage' | 'current_source'
   // Semiconductors & ICs
@@ -20,9 +20,9 @@ export type ComponentKind =
   | 'counter_4bit' | 'decoder_2to4'
   // Digital I/O & Clock
   | 'clock_source' | 'digital_input' | 'digital_output'
-  // Virtual Instruments
+  // Virtual Instruments & Output Transducers
   | 'oscilloscope' | 'logic_analyzer' | 'multimeter' | 'voltmeter' | 'ammeter'
-  | 'signal_generator'
+  | 'signal_generator' | 'ohmmeter' | 'speaker'
   // Interactive
   | 'switch' | 'pushbutton' | 'led' | 'potentiometer'
   // Data Converters
@@ -98,6 +98,35 @@ export interface ComponentParams {
   resolution?: number; // 2, 4, 8, 12, 16 bits
   vMin?: number;       // Min analog voltage (V)
   vMax?: number;       // Max analog voltage / Vref (V)
+  // Speaker & OhmMeter
+  speakerVolume?: number; // 0 to 100%
+  speakerMuted?: boolean;
+  ohmmeterRange?: 'auto' | '200' | '2k' | '20k' | '200k' | '2M' | '20M';
+}
+
+export interface CurvePoint {
+  x: number;
+  y: number;
+}
+
+export interface CurveSeries {
+  id: string;
+  name: string;
+  color: string;
+  points: CurvePoint[];
+  secondaryVal?: number;
+}
+
+export interface CurveAnalysisConfig {
+  sweepVar: string;
+  sweepStart: number;
+  sweepStop: number;
+  sweepSteps: number;
+  sweepScale: 'linear' | 'logarithmic';
+  secondaryVar?: string;
+  secondaryValues?: number[];
+  xExpression: string;
+  yExpression: string;
 }
 
 export type WaveformType = 'sine' | 'cosine' | 'square' | 'triangle' | 'sawtooth' | 'pulse' | 'dc';
