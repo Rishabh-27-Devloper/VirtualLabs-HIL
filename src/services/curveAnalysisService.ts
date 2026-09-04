@@ -215,6 +215,10 @@ function resolveVariableValue(
   compStates: Record<string, ComponentSimState>,
   comps: Record<string, ComponentInstance>
 ): number {
+  if (varId === '__swept__') {
+    return 0; // Handled directly in sweep loop
+  }
+
   if (varId.startsWith('node:')) {
     const targetNetId = varId.replace('node:', '');
     for (const state of Object.values(compStates)) {
@@ -538,7 +542,9 @@ export function runParameterSweepAsync(
       const compStates = computeStatesFromMna(testNetlist, mnaResult);
 
       const markedVars = getMarkedVariableValues(testNetlist, compStates);
-      const xVal = resolveVariableValue(options.xVariableId, compStates, clonedComps);
+      const xVal = options.xVariableId === '__swept__'
+        ? currentSweepVal
+        : resolveVariableValue(options.xVariableId, compStates, clonedComps);
       const rawY = resolveVariableValue(options.yVariableId, compStates, clonedComps);
 
       let yVal = 0;
@@ -574,6 +580,20 @@ export function runParameterSweepAsync(
     if (pointsProcessed < totalPoints) {
       requestAnimationFrame(stepChunk);
     } else {
+      // If X-axis values are completely degenerate/flat while the swept parameter was actually moving,
+      // fallback X values to the swept values so the plot is useful and not all identical ticks
+      seriesList.forEach((s) => {
+        if (s.points.length > 1) {
+          const minX = Math.min(...s.points.map((p) => p.x));
+          const maxX = Math.max(...s.points.map((p) => p.x));
+          if (Math.abs(maxX - minX) < 1e-9 && Math.abs(options.sweepStop - options.sweepStart) > 1e-6) {
+            s.points.forEach((pt, idx) => {
+              pt.x = sweepValues[idx] ?? pt.x;
+            });
+          }
+        }
+      });
+
       // Ensure points are sorted and strictly ascending for uPlot compatibility
       seriesList.forEach((s) => {
         s.points.sort((a, b) => a.x - b.x);

@@ -18,6 +18,74 @@ import {
 import type { CurveSeries } from '@/types/circuit';
 import { logger } from '@/utils/logger';
 
+function formatAxisSplits(splits: number[]): string[] {
+  if (!splits || splits.length === 0) return [];
+  let minDiff = Infinity;
+  for (let i = 1; i < splits.length; i++) {
+    const diff = Math.abs(splits[i] - splits[i - 1]);
+    if (diff > 1e-15 && diff < minDiff) minDiff = diff;
+  }
+  if (!isFinite(minDiff)) minDiff = Math.abs(splits[0]) || 1;
+
+  const maxAbs = Math.max(...splits.map((s) => (isNaN(s) ? 0 : Math.abs(s))));
+  if (maxAbs === 0) return splits.map(() => '0');
+
+  let unitPrefix = '';
+  let scale = 1;
+
+  if (maxAbs >= 1e6) {
+    unitPrefix = 'M';
+    scale = 1e-6;
+  } else if (maxAbs >= 1e3) {
+    unitPrefix = 'k';
+    scale = 1e-3;
+  } else if (maxAbs >= 1) {
+    unitPrefix = '';
+    scale = 1;
+  } else if (maxAbs >= 1e-3) {
+    unitPrefix = 'm';
+    scale = 1e3;
+  } else if (maxAbs >= 1e-6) {
+    unitPrefix = 'µ';
+    scale = 1e6;
+  } else if (maxAbs >= 1e-9) {
+    unitPrefix = 'n';
+    scale = 1e9;
+  } else if (maxAbs >= 1e-12) {
+    unitPrefix = 'p';
+    scale = 1e12;
+  }
+
+  const scaledStep = minDiff * scale;
+  let decimals = 0;
+  if (scaledStep < 0.001) decimals = 4;
+  else if (scaledStep < 0.01) decimals = 3;
+  else if (scaledStep < 0.1) decimals = 2;
+  else if (scaledStep < 1) decimals = 1;
+  else decimals = 0;
+
+  return splits.map((v) => {
+    if (isNaN(v)) return '--';
+    const scaledVal = v * scale;
+    const cleanVal = Math.abs(scaledVal) < 1e-12 ? 0 : scaledVal;
+    return `${cleanVal.toFixed(decimals)}${unitPrefix}`;
+  });
+}
+
+function formatHoverValue(v: number | null | undefined): string {
+  if (v === null || v === undefined || isNaN(v)) return '--';
+  const abs = Math.abs(v);
+  if (abs === 0) return '0';
+  if (abs >= 1e6) return `${(v / 1e6).toFixed(3)} M`;
+  if (abs >= 1e3) return `${(v / 1e3).toFixed(3)} k`;
+  if (abs >= 1) return `${v.toFixed(3)}`;
+  if (abs >= 1e-3) return `${(v * 1e3).toFixed(3)} m`;
+  if (abs >= 1e-6) return `${(v * 1e6).toFixed(3)} µ`;
+  if (abs >= 1e-9) return `${(v * 1e9).toFixed(3)} n`;
+  if (abs >= 1e-12) return `${(v * 1e12).toFixed(3)} p`;
+  return v.toExponential(3);
+}
+
 export const CharacteristicCurveModal: React.FC = () => {
   const show = useCircuitStore((s) => s.showCharacteristicCurve);
   const setShow = useCircuitStore((s) => s.setShowCharacteristicCurve);
@@ -437,18 +505,22 @@ export const CharacteristicCurveModal: React.FC = () => {
     });
 
     const xVarObj = availableVars.find((v) => v.id === xAxisVarId);
-    const xLabel = xVarObj ? xVarObj.label : 'X Axis';
+    const xLabel = xAxisVarId === '__swept__'
+      ? `Swept ${components[sweepCompId]?.label || 'Source'} (${sweepParam})`
+      : (xVarObj ? xVarObj.label : 'X Axis');
     const yLabel = useFormula ? formulaStr : (availableVars.find((v) => v.id === yAxisVarId)?.label || 'Y Axis');
 
     const seriesConfig: uPlot.Series[] = [
       {
         label: xLabel,
+        value: (_self, raw) => formatHoverValue(raw),
       },
       ...resultSeries.map((s) => ({
         label: s.name,
         stroke: s.color,
         width: 2.5,
         points: { show: s.points.length <= 60, size: 4 },
+        value: (_self: any, raw: number) => formatHoverValue(raw),
       })),
     ];
 
@@ -463,8 +535,25 @@ export const CharacteristicCurveModal: React.FC = () => {
         points: { size: 6, fill: '#22d3ee' },
       },
       scales: {
-        x: { time: false, auto: true },
-        y: { auto: true },
+        x: {
+          time: false,
+          auto: true,
+          range: (_self, initMin, initMax) => {
+            if (initMin === initMax) {
+              return initMin === 0 ? [-1, 1] : [initMin * 0.9, initMax * 1.1];
+            }
+            return [initMin, initMax];
+          },
+        },
+        y: {
+          auto: true,
+          range: (_self, initMin, initMax) => {
+            if (initMin === initMax) {
+              return initMin === 0 ? [-1, 1] : [initMin * 0.9, initMax * 1.1];
+            }
+            return [initMin, initMax];
+          },
+        },
       },
       axes: [
         {
@@ -472,12 +561,14 @@ export const CharacteristicCurveModal: React.FC = () => {
           stroke: isDark ? '#94a3b8' : '#475569',
           grid: { stroke: isDark ? '#1e293b' : '#e2e8f0', width: 1 },
           ticks: { stroke: isDark ? '#334155' : '#cbd5e1', width: 1 },
+          values: (_self, splits) => formatAxisSplits(splits),
         },
         {
           label: yLabel,
           stroke: isDark ? '#94a3b8' : '#475569',
           grid: { stroke: isDark ? '#1e293b' : '#e2e8f0', width: 1 },
           ticks: { stroke: isDark ? '#334155' : '#cbd5e1', width: 1 },
+          values: (_self, splits) => formatAxisSplits(splits),
         },
       ],
       series: seriesConfig,
@@ -663,7 +754,26 @@ export const CharacteristicCurveModal: React.FC = () => {
                   <label className="text-[10px] text-slate-400 block mb-1">Swept Component</label>
                   <select
                     value={sweepCompId}
-                    onChange={(e) => setSweepCompId(e.target.value)}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      setSweepCompId(newId);
+                      const c = components[newId];
+                      if (c) {
+                        if (c.kind === 'current_source') {
+                          setSweepParam('current');
+                          setXAxisVarId(`${newId}:current`);
+                        } else if (c.kind === 'ac_voltage' || c.kind === 'signal_generator') {
+                          setSweepParam('frequency');
+                          setXAxisVarId(`${newId}:frequency`);
+                        } else if (c.kind === 'resistor') {
+                          setSweepParam('resistance');
+                          setXAxisVarId(`${newId}:resistance`);
+                        } else {
+                          setSweepParam('voltage');
+                          setXAxisVarId(`${newId}:voltage`);
+                        }
+                      }
+                    }}
                     className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs outline-none"
                   >
                     <option value="" disabled>Select Swept Component...</option>
@@ -679,7 +789,13 @@ export const CharacteristicCurveModal: React.FC = () => {
                   <label className="text-[10px] text-slate-400 block mb-1">Swept Parameter</label>
                   <select
                     value={sweepParam}
-                    onChange={(e) => setSweepParam(e.target.value as any)}
+                    onChange={(e) => {
+                      const newParam = e.target.value as any;
+                      setSweepParam(newParam);
+                      if (sweepCompId) {
+                        setXAxisVarId(`${sweepCompId}:${newParam}`);
+                      }
+                    }}
                     className="w-full px-2 py-1 rounded bg-slate-950 border border-slate-700 text-white font-mono text-xs outline-none"
                   >
                     <option value="voltage">Voltage / DC Bias (V)</option>
@@ -795,6 +911,9 @@ export const CharacteristicCurveModal: React.FC = () => {
                     onChange={(e) => setXAxisVarId(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs outline-none"
                   >
+                    <option value="__swept__">
+                      ⚡ Swept Parameter ({components[sweepCompId]?.label || sweepCompId || 'Source'} {sweepParam})
+                    </option>
                     {availableVars.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.label}

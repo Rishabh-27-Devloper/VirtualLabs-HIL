@@ -3,6 +3,16 @@
 All notable changes to **VirtualLab-HIL** are documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-09-05
+
+### Fixed
+- **Characteristic Curve Analyzer Plot Axes & Small-Signal Ticks**:
+  - Implemented adaptive SI-unit prefix formatting (`p`, `n`, `µ`, `m`, `k`, `M`) and step-sensitive dynamic decimal precision for uPlot axis ticks and cursor hover inspection. Resolves issue where sub-millivolt or microamp splits (such as $< 0.001\text{V}$) were truncated to `"0"` by default integer/fixed formatter.
+  - Added non-zero range fallback in uPlot scales to prevent zero-span singularities when series data is completely flat.
+  - Automatically synchronized `xAxisVarId` when selecting swept component or parameter in Section 1 to prevent variable desynchronization.
+  - Added dedicated `⚡ Swept Parameter` option in X-axis variable selector for instant mapping to swept source values.
+  - Added automatic fallback to swept values when selected X-axis variable produces degenerate flat data during sweep.
+
 ## [1.3.0] - 2026-09-05
 
 ### Added
