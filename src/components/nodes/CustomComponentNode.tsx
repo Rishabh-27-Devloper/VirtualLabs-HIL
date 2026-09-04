@@ -51,6 +51,45 @@ function getRotatedPin(pin: PinDefinition, rotation = 0): { x: number; y: number
   return { x, y, pos };
 }
 
+function formatVolts(v: number): string {
+  if (!isFinite(v) || isNaN(v)) return '0.00 V';
+  const abs = Math.abs(v);
+  if (abs < 1e-6) return '0.00 V';
+  if (abs < 1e-3) return `${(v * 1e6).toFixed(1)} µV`;
+  if (abs < 1) return `${(v * 1000).toFixed(1)} mV`;
+  if (abs < 1000) return `${v.toFixed(2)} V`;
+  return `${(v / 1000).toFixed(2)} kV`;
+}
+
+function formatCurrent(i: number): string {
+  if (!isFinite(i) || isNaN(i)) return '0.00 A';
+  const abs = Math.abs(i);
+  if (abs < 1e-9) return '0.0 nA';
+  if (abs < 1e-6) return `${(i * 1e9).toFixed(1)} nA`;
+  if (abs < 1e-3) return `${(i * 1e6).toFixed(1)} µA`;
+  if (abs < 1) return `${(i * 1000).toFixed(2)} mA`;
+  return `${i.toFixed(3)} A`;
+}
+
+function formatPower(p: number): string {
+  if (!isFinite(p) || isNaN(p)) return '0.00 mW';
+  const abs = Math.abs(p);
+  if (abs < 1e-6) return `${(p * 1e6).toFixed(1)} µW`;
+  if (abs < 1e-3) return `${(p * 1e3).toFixed(2)} mW`;
+  if (abs < 1000) return `${p.toFixed(2)} W`;
+  return `${(p / 1000).toFixed(2)} kW`;
+}
+
+function formatEnergy(j: number): string {
+  if (!isFinite(j) || isNaN(j)) return '0.00 nJ';
+  const abs = Math.abs(j);
+  if (abs < 1e-9) return `${(j * 1e12).toFixed(1)} pJ`;
+  if (abs < 1e-6) return `${(j * 1e9).toFixed(1)} nJ`;
+  if (abs < 1e-3) return `${(j * 1e6).toFixed(1)} µJ`;
+  if (abs < 1) return `${(j * 1e3).toFixed(2)} mJ`;
+  return `${j.toFixed(3)} J`;
+}
+
 export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, selected }) => {
   const nodeData = data as unknown as NodeData;
   const components = useCircuitStore((s) => s.components);
@@ -882,14 +921,445 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
       <div className="p-2 flex flex-col items-center justify-center min-h-[50px] gap-1.5">
         {renderSymbol()}
 
-        {/* ── LIVE SIMULATION READOUT (VOLTAGE & CURRENT) ── */}
-        {compSimState && (kind === 'resistor' || kind === 'diode' || kind === 'zener' || kind === 'capacitor' || kind === 'inductor') && (
-          <div className={`flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9px] font-mono border ${
-            isDark ? 'bg-slate-950/60 border-slate-800/80 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-700 font-semibold'
-          }`}>
-            <span>ΔV: <b className={isDark ? 'text-cyan-400 font-bold' : 'text-blue-700 font-extrabold'}>{Math.abs(vDiff) < 0.001 ? '0.00V' : `${vDiff >= 0 ? '+' : ''}${vDiff.toFixed(2)}V`}</b></span>
-            <span>I: <b className={isDark ? 'text-amber-400 font-bold' : 'text-amber-800 font-extrabold'}>{Math.abs(compSimState.branchCurrents?.['p'] ?? (kind === 'resistor' && params.resistance ? vDiff / params.resistance : 0)) < 0.0001 ? '0.0mA' : `${(Math.abs(compSimState.branchCurrents?.['p'] ?? (kind === 'resistor' && params.resistance ? vDiff / params.resistance : 0)) * 1000).toFixed(1)}mA`}</b></span>
-          </div>
+        {/* ── TEXTBOOK LIVE SIMULATION READOUTS & OPERATING MODES ── */}
+        {compSimState && (
+          <>
+            {/* 1. RESISTOR */}
+            {kind === 'resistor' && (() => {
+              const iR = compSimState.branchCurrents?.['p'] ?? (params.resistance ? vDiff / params.resistance : 0);
+              const pR = Math.abs(vDiff * iR);
+              return (
+                <div className={`w-full flex flex-col gap-0.5 px-1.5 py-1 rounded-md text-[9px] font-mono border ${
+                  isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span>V<sub className="text-[7px]">R</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vDiff)}</b></span>
+                    <span>I<sub className="text-[7px]">R</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iR)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8px] text-slate-400 border-t border-slate-800/40 pt-0.5">
+                    <span>P<sub className="text-[6.5px]">diss</sub>: <b className={isDark ? 'text-purple-300 font-bold' : 'text-purple-700 font-bold'}>{formatPower(pR)}</b></span>
+                    <span className="text-[7.5px] opacity-75">{params.resistance ? `${params.resistance >= 1e6 ? `${(params.resistance/1e6).toFixed(1)}MΩ` : params.resistance >= 1e3 ? `${(params.resistance/1e3).toFixed(1)}kΩ` : `${params.resistance}Ω`}` : ''}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 2. CAPACITOR */}
+            {kind === 'capacitor' && (() => {
+              const iC = compSimState.branchCurrents?.['p'] ?? 0;
+              const C = params.capacitance ?? 1e-6;
+              const energy = 0.5 * C * vDiff * vDiff;
+              return (
+                <div className={`w-full flex flex-col gap-0.5 px-1.5 py-1 rounded-md text-[9px] font-mono border ${
+                  isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span>V<sub className="text-[7px]">C</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vDiff)}</b></span>
+                    <span>I<sub className="text-[7px]">C</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iC)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8px] text-slate-400 border-t border-slate-800/40 pt-0.5">
+                    <span>E<sub className="text-[6.5px]">stored</sub>: <b className={isDark ? 'text-emerald-300 font-bold' : 'text-emerald-700 font-bold'}>{formatEnergy(energy)}</b></span>
+                    <span className="text-[7.5px] opacity-75">{C >= 1e-6 ? `${(C*1e6).toFixed(1)}µF` : C >= 1e-9 ? `${(C*1e9).toFixed(1)}nF` : `${(C*1e12).toFixed(1)}pF`}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 3. INDUCTOR */}
+            {kind === 'inductor' && (() => {
+              const iL = compSimState.branchCurrents?.['p'] ?? 0;
+              const L = params.inductance ?? 0.01;
+              const energy = 0.5 * L * iL * iL;
+              return (
+                <div className={`w-full flex flex-col gap-0.5 px-1.5 py-1 rounded-md text-[9px] font-mono border ${
+                  isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span>V<sub className="text-[7px]">L</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vDiff)}</b></span>
+                    <span>I<sub className="text-[7px]">L</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iL)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8px] text-slate-400 border-t border-slate-800/40 pt-0.5">
+                    <span>E<sub className="text-[6.5px]">stored</sub>: <b className={isDark ? 'text-emerald-300 font-bold' : 'text-emerald-700 font-bold'}>{formatEnergy(energy)}</b></span>
+                    <span className="text-[7.5px] opacity-75">{L >= 1 ? `${L.toFixed(2)}H` : L >= 1e-3 ? `${(L*1e3).toFixed(1)}mH` : `${(L*1e6).toFixed(1)}µH`}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 4. DIODE & LED */}
+            {(kind === 'diode' || kind === 'led') && (() => {
+              const vA = compSimState.nodeVoltages?.['p'] ?? compSimState.nodeVoltages?.['A'] ?? 0;
+              const vK = compSimState.nodeVoltages?.['n'] ?? compSimState.nodeVoltages?.['K'] ?? 0;
+              const vD = vA - vK;
+              const iD = compSimState.branchCurrents?.['p'] ?? compSimState.branchCurrents?.['A'] ?? 0;
+              const pD = Math.max(0, vD * iD);
+              const vfThres = kind === 'led' ? 1.5 : 0.55;
+
+              let mode = 'REVERSE BIASED';
+              let badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+              let dotStyle = 'bg-slate-400';
+
+              if (vD <= -50) {
+                mode = 'BREAKDOWN';
+                badgeStyle = isDark ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse' : 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
+                dotStyle = 'bg-rose-400';
+              } else if (vD >= vfThres && iD > 1e-6) {
+                mode = 'FORWARD (ON)';
+                badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                dotStyle = 'bg-emerald-400 animate-pulse';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">Mode:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>V<sub className="text-[7px]">D</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vD)}</b></span>
+                    <span>I<sub className="text-[7px]">D</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iD)}</b></span>
+                    <span>P<sub className="text-[7px]">D</sub>: <b className={isDark ? 'text-purple-300 font-bold' : 'text-purple-700 font-bold'}>{formatPower(pD)}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 5. ZENER DIODE */}
+            {kind === 'zener' && (() => {
+              const vA = compSimState.nodeVoltages?.['p'] ?? 0;
+              const vK = compSimState.nodeVoltages?.['n'] ?? 0;
+              const vD = vA - vK;
+              const vz = params.zenerVoltage ?? 5.1;
+              const iD = compSimState.branchCurrents?.['p'] ?? 0;
+              const iZ = -iD; // positive in reverse breakdown
+              const pZ = Math.abs(vD * iD);
+
+              let mode = 'REVERSE BLOCKED';
+              let badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+              let dotStyle = 'bg-slate-400';
+
+              if (vD <= -vz + 0.05) {
+                mode = 'ZENER REGULATING';
+                badgeStyle = isDark ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)]' : 'bg-cyan-100 text-cyan-800 border-cyan-300 font-bold';
+                dotStyle = 'bg-cyan-400 animate-pulse';
+              } else if (vD >= 0.55) {
+                mode = 'FORWARD (ON)';
+                badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                dotStyle = 'bg-emerald-400';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">Mode:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>V<sub className="text-[7px]">D</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vD)}</b></span>
+                    <span>I<sub className="text-[7px]">{vD <= -vz + 0.05 ? 'Z' : 'D'}</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(vD <= -vz + 0.05 ? iZ : iD)}</b></span>
+                    <span>P<sub className="text-[7px]">Z</sub>: <b className={isDark ? 'text-purple-300 font-bold' : 'text-purple-700 font-bold'}>{formatPower(pZ)}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 6. BJT NPN */}
+            {kind === 'bjt_npn' && (() => {
+              const vB = compSimState.nodeVoltages?.['base'] ?? 0;
+              const vC = compSimState.nodeVoltages?.['collector'] ?? 0;
+              const vE = compSimState.nodeVoltages?.['emitter'] ?? 0;
+              const vBe = vB - vE;
+              const vCe = vC - vE;
+              const vBc = vB - vC;
+
+              const iB = compSimState.branchCurrents?.['base'] ?? 0;
+              const iC = compSimState.branchCurrents?.['collector'] ?? 0;
+              const iE = compSimState.branchCurrents?.['emitter'] ?? -(iB + iC);
+
+              let mode = 'CUTOFF (OFF)';
+              let badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+              let dotStyle = 'bg-slate-400';
+
+              if (vBe >= 0.55 && vCe >= 0.2) {
+                mode = 'FORWARD ACTIVE';
+                badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                dotStyle = 'bg-emerald-400 animate-pulse';
+              } else if (vBe >= 0.55 && vCe < 0.2) {
+                mode = 'SATURATION (ON)';
+                badgeStyle = isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
+                dotStyle = 'bg-amber-400';
+              } else if (vBc >= 0.55 && vBe < 0.55) {
+                mode = 'REVERSE ACTIVE';
+                badgeStyle = isDark ? 'bg-purple-500/20 text-purple-300 border-purple-500/40' : 'bg-purple-100 text-purple-800 border-purple-300 font-bold';
+                dotStyle = 'bg-purple-400';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">BJT Mode:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>V<sub className="text-[7px]">be</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vBe)}</b></span>
+                    <span>V<sub className="text-[7px]">ce</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vCe)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8.5px]">
+                    <span>I<sub className="text-[7px]">b</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iB)}</b></span>
+                    <span>I<sub className="text-[7px]">c</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iC)}</b></span>
+                    <span>I<sub className="text-[7px]">e</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(Math.abs(iE))}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 7. BJT PNP */}
+            {kind === 'bjt_pnp' && (() => {
+              const vB = compSimState.nodeVoltages?.['base'] ?? 0;
+              const vC = compSimState.nodeVoltages?.['collector'] ?? 0;
+              const vE = compSimState.nodeVoltages?.['emitter'] ?? 0;
+              const vEb = vE - vB;
+              const vEc = vE - vC;
+              const vCb = vC - vB;
+
+              const iB = Math.abs(compSimState.branchCurrents?.['base'] ?? 0);
+              const iC = Math.abs(compSimState.branchCurrents?.['collector'] ?? 0);
+              const iE = Math.abs(compSimState.branchCurrents?.['emitter'] ?? (iB + iC));
+
+              let mode = 'CUTOFF (OFF)';
+              let badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+              let dotStyle = 'bg-slate-400';
+
+              if (vEb >= 0.55 && vEc >= 0.2) {
+                mode = 'FORWARD ACTIVE';
+                badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                dotStyle = 'bg-emerald-400 animate-pulse';
+              } else if (vEb >= 0.55 && vEc < 0.2) {
+                mode = 'SATURATION (ON)';
+                badgeStyle = isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
+                dotStyle = 'bg-amber-400';
+              } else if (vCb >= 0.55 && vEb < 0.55) {
+                mode = 'REVERSE ACTIVE';
+                badgeStyle = isDark ? 'bg-purple-500/20 text-purple-300 border-purple-500/40' : 'bg-purple-100 text-purple-800 border-purple-300 font-bold';
+                dotStyle = 'bg-purple-400';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">PNP Mode:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>V<sub className="text-[7px]">eb</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vEb)}</b></span>
+                    <span>V<sub className="text-[7px]">ec</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vEc)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8.5px]">
+                    <span>I<sub className="text-[7px]">b</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iB)}</b></span>
+                    <span>I<sub className="text-[7px]">c</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iC)}</b></span>
+                    <span>I<sub className="text-[7px]">e</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iE)}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 8. MOSFET N-CHANNEL */}
+            {(kind === 'mosfet_n_enh' || kind === 'mosfet_n_dep') && (() => {
+              const vG = compSimState.nodeVoltages?.['gate'] ?? 0;
+              const vD = compSimState.nodeVoltages?.['drain'] ?? 0;
+              const vS = compSimState.nodeVoltages?.['source'] ?? 0;
+              const vGs = vG - vS;
+              const vDs = vD - vS;
+              const vTh = params.vth ?? (kind === 'mosfet_n_dep' ? -1.5 : 2.0);
+              const vOv = vGs - vTh;
+              const iD = Math.abs(compSimState.branchCurrents?.['drain'] ?? 0);
+              const pD = Math.max(0, vDs * iD);
+
+              let mode = 'CUTOFF (OFF)';
+              let badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+              let dotStyle = 'bg-slate-400';
+
+              if (vOv <= 0) {
+                mode = 'CUTOFF (OFF)';
+                badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+                dotStyle = 'bg-slate-400';
+              } else if (vDs < vOv) {
+                mode = 'TRIODE (Linear)';
+                badgeStyle = isDark ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-cyan-100 text-cyan-800 border-cyan-300 font-bold';
+                dotStyle = 'bg-cyan-400';
+              } else {
+                mode = 'SATURATION (Pinch)';
+                badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                dotStyle = 'bg-emerald-400 animate-pulse';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">MOSFET:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>V<sub className="text-[7px]">gs</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vGs)}</b></span>
+                    <span>V<sub className="text-[7px]">ds</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vDs)}</b></span>
+                    <span>V<sub className="text-[7px]">ov</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vOv)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8.5px]">
+                    <span>I<sub className="text-[7px]">d</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iD)}</b></span>
+                    <span>P<sub className="text-[7px]">diss</sub>: <b className={isDark ? 'text-purple-300 font-bold' : 'text-purple-700 font-bold'}>{formatPower(pD)}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 9. MOSFET P-CHANNEL */}
+            {(kind === 'mosfet_p_enh' || kind === 'mosfet_p_dep') && (() => {
+              const vG = compSimState.nodeVoltages?.['gate'] ?? 0;
+              const vD = compSimState.nodeVoltages?.['drain'] ?? 0;
+              const vS = compSimState.nodeVoltages?.['source'] ?? 0;
+              const vSg = vS - vG;
+              const vSd = vS - vD;
+              const vThp = Math.abs(params.vth ?? (kind === 'mosfet_p_dep' ? 1.5 : -2.0));
+              const vOv = vSg - vThp;
+              const iD = Math.abs(compSimState.branchCurrents?.['source'] ?? compSimState.branchCurrents?.['drain'] ?? 0);
+              const pD = Math.max(0, vSd * iD);
+
+              let mode = 'CUTOFF (OFF)';
+              let badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+              let dotStyle = 'bg-slate-400';
+
+              if (vOv <= 0) {
+                mode = 'CUTOFF (OFF)';
+                badgeStyle = isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300';
+                dotStyle = 'bg-slate-400';
+              } else if (vSd < vOv) {
+                mode = 'TRIODE (Linear)';
+                badgeStyle = isDark ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-cyan-100 text-cyan-800 border-cyan-300 font-bold';
+                dotStyle = 'bg-cyan-400';
+              } else {
+                mode = 'SATURATION (Pinch)';
+                badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                dotStyle = 'bg-emerald-400 animate-pulse';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">P-MOS:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>V<sub className="text-[7px]">sg</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vSg)}</b></span>
+                    <span>V<sub className="text-[7px]">sd</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vSd)}</b></span>
+                    <span>V<sub className="text-[7px]">ov</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vOv)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8.5px]">
+                    <span>I<sub className="text-[7px]">d</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iD)}</b></span>
+                    <span>P<sub className="text-[7px]">diss</sub>: <b className={isDark ? 'text-purple-300 font-bold' : 'text-purple-700 font-bold'}>{formatPower(pD)}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 10. OP-AMP */}
+            {kind === 'opamp' && (() => {
+              const vInP = compSimState.nodeVoltages?.['inp'] ?? 0;
+              const vInN = compSimState.nodeVoltages?.['inn'] ?? 0;
+              const vOut = compSimState.nodeVoltages?.['out'] ?? 0;
+              const vcc = compSimState.nodeVoltages?.['vcc'] ?? params.vcc ?? 15.0;
+              const vee = compSimState.nodeVoltages?.['vee'] ?? params.vee ?? -15.0;
+              const deltaVin = vInP - vInN;
+              const iOut = compSimState.branchCurrents?.['out'] ?? 0;
+
+              let mode = 'LINEAR (V-Short)';
+              let badgeStyle = isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+              let dotStyle = 'bg-emerald-400 animate-pulse';
+
+              if (vOut >= vcc - 0.15) {
+                mode = '+SAT (+Vcc)';
+                badgeStyle = isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
+                dotStyle = 'bg-amber-400';
+              } else if (vOut <= vee + 0.15) {
+                mode = '-SAT (-Vee)';
+                badgeStyle = isDark ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
+                dotStyle = 'bg-rose-400';
+              } else if (Math.abs(deltaVin) >= 0.005) {
+                mode = 'OPEN-LOOP';
+                badgeStyle = isDark ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' : 'bg-blue-100 text-blue-800 border-blue-300 font-bold';
+                dotStyle = 'bg-blue-400';
+              }
+
+              return (
+                <div className={`w-full flex flex-col gap-1 p-1.5 rounded-lg border text-[9px] font-mono shadow-sm ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider">OpAmp:</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-extrabold border flex items-center gap-1 ${badgeStyle}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dotStyle}`} />
+                      {mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 border-t border-slate-800/40">
+                    <span>ΔV<sub className="text-[7px]">in</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(deltaVin)}</b></span>
+                    <span>V<sub className="text-[7px]">out</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vOut)}</b></span>
+                  </div>
+                  <div className="flex items-center justify-between text-[8px] text-slate-400">
+                    <span>I<sub className="text-[6.5px]">out</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iOut)}</b></span>
+                    <span>Rails: <b className={isDark ? 'text-slate-300' : 'text-slate-700 font-semibold'}>{Math.round(vcc)}V / {Math.round(vee)}V</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 11. POWER SOURCES */}
+            {(kind === 'dc_voltage' || kind === 'ac_voltage') && (() => {
+              const vP = compSimState.nodeVoltages?.['p'] ?? 0;
+              const vN = compSimState.nodeVoltages?.['n'] ?? 0;
+              const vSrc = vP - vN;
+              const iSrc = compSimState.branchCurrents?.['p'] ?? 0;
+              return (
+                <div className={`w-full flex flex-col gap-0.5 px-1.5 py-1 rounded-md text-[9px] font-mono border ${
+                  isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span>V<sub className="text-[7px]">out</sub>: <b className={isDark ? 'text-cyan-300 font-bold' : 'text-blue-700 font-extrabold'}>{formatVolts(vSrc)}</b></span>
+                    <span>I<sub className="text-[7px]">load</sub>: <b className={isDark ? 'text-amber-300 font-bold' : 'text-amber-800 font-extrabold'}>{formatCurrent(iSrc)}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+          </>
         )}
 
         {/* ── DIGITAL MULTIMETER DISPLAY ── */}

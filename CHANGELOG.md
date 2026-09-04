@@ -3,6 +3,38 @@
 All notable changes to **VirtualLab-HIL** are documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-05
+
+### Added
+- **Textbook-Feel Live Component Readouts & Operating Modes**:
+  - Live, physical engineering readouts rendered directly on all canvas component cards during simulation execution.
+  - **BJTs (NPN & PNP)**:
+    - Real-time voltage displays: $V_{be}, V_{ce}$ (or $V_{eb}, V_{ec}$ for PNP) with auto-scaling (mV / V).
+    - Branch currents: $I_b, I_c, I_e$ with auto-scaling ($\text{nA} / \mu\text{A} / \text{mA} / \text{A}$).
+    - Operating Mode pill indicators: `● FORWARD ACTIVE` (linear amplification), `● SATURATION (ON)` (fully turned on switch), `● CUTOFF (OFF)`, and `● REVERSE ACTIVE`.
+  - **MOSFETs (N-Channel & P-Channel, Enhancement & Depletion)**:
+    - Terminal voltages & overdrive: $V_{gs}, V_{ds}, V_{ov} = (V_{gs} - V_{th})$ (or $V_{sg}, V_{sd}, V_{ov}$ for P-MOS).
+    - Conduction current $I_d$ and channel power dissipation $P_{diss}$.
+    - Operating Mode pill indicators: `● CUTOFF (OFF)`, `● TRIODE (Linear / Ohmic)`, and `● SATURATION (Pinch-off / Active)`.
+  - **Diodes & LEDs**:
+    - Forward drop $V_D$, branch current $I_D$, and power dissipation $P_D$.
+    - Operating Mode pill indicators: `● FORWARD (ON)`, `● REVERSE BIASED`, and `● BREAKDOWN`.
+  - **Zener Diodes**:
+    - Differential voltage $V_D$, reverse regulating current $I_Z$, and clamp power $P_Z$.
+    - Operating Mode pill indicators: `● ZENER REGULATING` (active reverse breakdown clamping with cyan glow), `● FORWARD (ON)`, and `● REVERSE BLOCKED`.
+  - **Operational Amplifiers (Op-Amps)**:
+    - Differential input offset $\Delta V_{in} = (V_+ - V_-)$, output voltage $V_{out}$, output current $I_{out}$, and supply rail limits ($\pm V_{cc}/V_{ee}$).
+    - Operating Mode pill indicators: `● LINEAR (V-Short)` (virtual short under negative feedback), `● +SAT (+Vcc)` (positive saturation), `● -SAT (-Vee)` (negative saturation), and `● OPEN-LOOP`.
+  - **Passive Components**:
+    - Resistors: $\Delta V_R, I_R, P_{diss}$.
+    - Capacitors: $V_C, I_C, E_{stored}$ ($\frac{1}{2} C V^2$).
+    - Inductors: $V_L, I_L, E_{stored}$ ($\frac{1}{2} L I^2$).
+    - Sources: Output terminal voltage $V_{out}$ and delivered load current $I_{load}$.
+- **Physically Accurate Active Device Branch Currents**:
+  - Refined branch current dispatcher equations for Zener breakdown reverse conduction ($I_Z = (V_K - V_A - V_Z) / R_Z$), MOSFET triode & saturation with channel-length modulation $\lambda$, and BJT Early voltage effect ($V_A$).
+
+---
+
 ## [1.2.0] - 2026-09-05
 
 ### Added

@@ -659,10 +659,28 @@ export class SimulationDispatcher {
         branchCurrents['n'] = -iL * sign;
         branchCurrents['1'] = iL * sign;
         branchCurrents['2'] = -iL * sign;
-      } else if (comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'led') {
+      } else if (comp.kind === 'diode' || comp.kind === 'led') {
         const vDiff = (nodeVoltages['p'] ?? 0) - (nodeVoltages['n'] ?? 0);
         const Is = comp.params.saturationCurrent ?? 1e-14;
-        const iD = vDiff > 0.3 ? Is * (Math.exp(Math.min(vDiff / 0.026, 40)) - 1) : 0;
+        const n = comp.params.ideality ?? (comp.kind === 'led' ? 1.8 : 1.0);
+        const nVt = n * 0.025852;
+        const iD = vDiff > 0.3 ? Is * (Math.exp(Math.min(vDiff / nVt, 40)) - 1) : 0;
+        branchCurrents['p'] = iD;
+        branchCurrents['n'] = -iD;
+        branchCurrents['A'] = iD;
+        branchCurrents['K'] = -iD;
+      } else if (comp.kind === 'zener') {
+        const vDiff = (nodeVoltages['p'] ?? 0) - (nodeVoltages['n'] ?? 0);
+        const Vz = comp.params.zenerVoltage ?? 5.1;
+        const Rz = comp.params.zenerImpedance ?? 10;
+        let iD = 0;
+        if (vDiff > 0.3) {
+          const Is = comp.params.saturationCurrent ?? 1e-14;
+          iD = Is * (Math.exp(Math.min(vDiff / 0.025852, 40)) - 1);
+        } else if (vDiff < -Vz) {
+          // Reverse zener breakdown conduction (current flows cathode to anode)
+          iD = (vDiff + Vz) / Rz;
+        }
         branchCurrents['p'] = iD;
         branchCurrents['n'] = -iD;
         branchCurrents['A'] = iD;
@@ -672,8 +690,10 @@ export class SimulationDispatcher {
         const vCe = (nodeVoltages['collector'] ?? 0) - (nodeVoltages['emitter'] ?? 0);
         const beta = comp.params.beta ?? 100;
         const Is = comp.params.saturationCurrent ?? 1e-14;
-        const iB = vBe > 0.4 ? (Is / beta) * (Math.exp(Math.min(vBe / 0.026, 40)) - 1) : 0;
-        const iC = iB * beta * Math.max(0, Math.min(1, vCe / 0.2));
+        const Va = comp.params.earlyVoltage ?? 100;
+        const earlyFactor = 1 + Math.max(0, vCe) / Va;
+        const iB = vBe > 0.4 ? (Is / beta) * (Math.exp(Math.min(vBe / 0.025852, 40)) - 1) : 0;
+        const iC = iB * beta * Math.max(0, Math.min(1, vCe / 0.2)) * earlyFactor;
         branchCurrents['base'] = iB;
         branchCurrents['collector'] = iC;
         branchCurrents['emitter'] = -(iB + iC);
@@ -682,26 +702,46 @@ export class SimulationDispatcher {
         const vEc = (nodeVoltages['emitter'] ?? 0) - (nodeVoltages['collector'] ?? 0);
         const beta = comp.params.beta ?? 100;
         const Is = comp.params.saturationCurrent ?? 1e-14;
-        const iB = vEb > 0.4 ? -(Is / beta) * (Math.exp(Math.min(vEb / 0.026, 40)) - 1) : 0;
-        const iC = -Math.abs(iB) * beta * Math.max(0, Math.min(1, vEc / 0.2));
+        const Va = comp.params.earlyVoltage ?? 100;
+        const earlyFactor = 1 + Math.max(0, vEc) / Va;
+        const iB = vEb > 0.4 ? -(Is / beta) * (Math.exp(Math.min(vEb / 0.025852, 40)) - 1) : 0;
+        const iC = -Math.abs(iB) * beta * Math.max(0, Math.min(1, vEc / 0.2)) * earlyFactor;
         branchCurrents['base'] = iB;
         branchCurrents['collector'] = iC;
         branchCurrents['emitter'] = -(iB + iC);
       } else if (comp.kind === 'mosfet_n_enh' || comp.kind === 'mosfet_n_dep') {
         const vGs = (nodeVoltages['gate'] ?? 0) - (nodeVoltages['source'] ?? 0);
+        const vDs = (nodeVoltages['drain'] ?? 0) - (nodeVoltages['source'] ?? 0);
         const vTh = comp.params.vth ?? (comp.kind === 'mosfet_n_dep' ? -1.5 : 2.0);
         const kn = comp.params.kn ?? 0.002;
+        const lambda = comp.params.lambda ?? 0.02;
         const vEff = vGs - vTh;
-        const iD = vEff > 0 ? (kn / 2) * vEff * vEff : 0;
+        let iD = 0;
+        if (vEff > 0) {
+          if (vDs >= vEff) {
+            iD = (kn / 2) * vEff * vEff * (1 + lambda * Math.max(0, vDs));
+          } else if (vDs > 0) {
+            iD = kn * (vEff * vDs - (vDs * vDs) / 2) * (1 + lambda * vDs);
+          }
+        }
         branchCurrents['drain'] = iD;
         branchCurrents['source'] = -iD;
         branchCurrents['gate'] = 0;
       } else if (comp.kind === 'mosfet_p_enh' || comp.kind === 'mosfet_p_dep') {
         const vSg = (nodeVoltages['source'] ?? 0) - (nodeVoltages['gate'] ?? 0);
+        const vSd = (nodeVoltages['source'] ?? 0) - (nodeVoltages['drain'] ?? 0);
         const vTh = comp.params.vth ?? (comp.kind === 'mosfet_p_dep' ? 1.5 : -2.0);
         const kp = comp.params.kn ?? 0.002;
+        const lambda = comp.params.lambda ?? 0.02;
         const vEff = vSg - Math.abs(vTh);
-        const iD = vEff > 0 ? (kp / 2) * vEff * vEff : 0;
+        let iD = 0;
+        if (vEff > 0) {
+          if (vSd >= vEff) {
+            iD = (kp / 2) * vEff * vEff * (1 + lambda * Math.max(0, vSd));
+          } else if (vSd > 0) {
+            iD = kp * (vEff * vSd - (vSd * vSd) / 2) * (1 + lambda * vSd);
+          }
+        }
         branchCurrents['source'] = iD;
         branchCurrents['drain'] = -iD;
         branchCurrents['gate'] = 0;
