@@ -119,6 +119,7 @@ export const ComponentInspector: React.FC = () => {
   const performanceMode = useCircuitStore((s) => s.performanceMode);
   const setPerformanceMode = useCircuitStore((s) => s.setPerformanceMode);
   const setSpeedMultiplier = useCircuitStore((s) => s.setSpeedMultiplier);
+  const setAnalogMarker = useCircuitStore((s) => s.setAnalogMarker);
   const theme = useCircuitStore((s) => s.theme);
   const isDark = theme === 'dark';
 
@@ -1879,6 +1880,273 @@ export const ComponentInspector: React.FC = () => {
                 )}
               </select>
             </div>
+          </div>
+        )}
+
+        {/* ── ANALOG PRIMARY VARIABLE MARKER (Truth Table Style) ── */}
+        <div className={`p-3 rounded-xl border space-y-2.5 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-bold text-xs">📈 Primary Variable Marker</span>
+            </div>
+            {params.analogMarker && (
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ACTIVE
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            Tag this component's variable (like <code>Vi</code>, <code>Vo</code>, <code>Vcc</code>, <code>Vce</code>) to use in Characteristic Curve sweeps and formulas.
+          </p>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="enable-analog-marker"
+              checked={Boolean(params.analogMarker)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  let defaultKey = 'v_drop';
+                  let defaultLabel = 'V1';
+                  if (comp.kind === 'ac_voltage' || comp.kind === 'signal_generator') {
+                    defaultKey = 'amplitude';
+                    defaultLabel = 'Vi';
+                  } else if (comp.kind === 'dc_voltage') {
+                    defaultKey = 'voltage';
+                    defaultLabel = 'Vcc';
+                  } else if (comp.kind === 'resistor') {
+                    defaultKey = 'v_drop';
+                    defaultLabel = 'Vo';
+                  } else if (comp.kind.startsWith('bjt')) {
+                    defaultKey = 'vce';
+                    defaultLabel = 'Vce';
+                  } else if (comp.kind.startsWith('mosfet')) {
+                    defaultKey = 'vds';
+                    defaultLabel = 'Vds';
+                  }
+                  setAnalogMarker(comp.id, { label: defaultLabel, variableKey: defaultKey });
+                } else {
+                  setAnalogMarker(comp.id, null);
+                }
+              }}
+              className="accent-emerald-500 w-4 h-4 cursor-pointer"
+            />
+            <label htmlFor="enable-analog-marker" className="text-xs font-semibold cursor-pointer text-slate-300">
+              Mark as Primary Variable
+            </label>
+          </div>
+
+          {params.analogMarker && (
+            <div className="space-y-2 pt-1">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 mb-1">Target Variable</label>
+                <select
+                  value={params.analogMarker.variableKey}
+                  onChange={(e) => setAnalogMarker(comp.id, { label: params.analogMarker!.label, variableKey: e.target.value })}
+                  className={`w-full px-2.5 py-1.5 rounded-lg border font-mono text-xs outline-none focus:border-emerald-500 ${
+                    isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                  }`}
+                >
+                  {comp.kind === 'dc_voltage' && <option value="voltage">DC Voltage (V)</option>}
+                  {(comp.kind === 'ac_voltage' || comp.kind === 'signal_generator') && (
+                    <>
+                      <option value="amplitude">Peak Amplitude (V)</option>
+                      <option value="frequency">Frequency (Hz)</option>
+                      <option value="offset">DC Offset (V)</option>
+                    </>
+                  )}
+                  {comp.kind === 'current_source' && <option value="current">Source Current (A)</option>}
+                  {comp.kind === 'resistor' && (
+                    <>
+                      <option value="v_drop">Voltage Drop (V_R)</option>
+                      <option value="current">Branch Current (I_R)</option>
+                      <option value="resistance">Resistance (Ω)</option>
+                    </>
+                  )}
+                  {(comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'led') && (
+                    <>
+                      <option value="v_drop">Forward Voltage (V_D)</option>
+                      <option value="current">Diode Current (I_D)</option>
+                    </>
+                  )}
+                  {comp.kind.startsWith('bjt') && (
+                    <>
+                      <option value="vce">Collector-Emitter Voltage (V_CE)</option>
+                      <option value="vbe">Base-Emitter Voltage (V_BE)</option>
+                      <option value="ic">Collector Current (I_C)</option>
+                      <option value="ib">Base Current (I_B)</option>
+                    </>
+                  )}
+                  {comp.kind.startsWith('mosfet') && (
+                    <>
+                      <option value="vds">Drain-Source Voltage (V_DS)</option>
+                      <option value="vgs">Gate-Source Voltage (V_GS)</option>
+                      <option value="id">Drain Current (I_D)</option>
+                    </>
+                  )}
+                  {comp.kind === 'capacitor' && (
+                    <>
+                      <option value="v_drop">Capacitor Voltage (V_C)</option>
+                      <option value="current">Displacement Current (I_C)</option>
+                    </>
+                  )}
+                  {comp.kind === 'inductor' && (
+                    <>
+                      <option value="v_drop">Inductor Voltage (V_L)</option>
+                      <option value="current">Inductor Current (I_L)</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 mb-1">Marker Tag / Label (e.g. Vi, Vo, Vcc, Vce, Ic, f)</label>
+                <input
+                  type="text"
+                  maxLength={12}
+                  value={params.analogMarker.label}
+                  onChange={(e) => setAnalogMarker(comp.id, { label: e.target.value.trim(), variableKey: params.analogMarker!.variableKey })}
+                  placeholder="e.g. Vi, Vo, Vce"
+                  className={`w-full px-2.5 py-1.5 rounded-lg border font-mono text-xs outline-none focus:border-emerald-500 font-bold ${
+                    isDark ? 'bg-slate-950 border-slate-700 text-emerald-300' : 'bg-white border-slate-300 text-emerald-800'
+                  }`}
+                />
+              </div>
+
+              {/* Quick suggestions */}
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {['Vi', 'Vo', 'Vcc', 'Vce', 'Ic', 'Ib', 'Vin', 'Vout', 'f'].map((sug) => (
+                  <button
+                    key={sug}
+                    onClick={() => setAnalogMarker(comp.id, { label: sug, variableKey: params.analogMarker!.variableKey })}
+                    className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300 hover:text-emerald-300 border border-slate-700 transition"
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── HIGH-FREQUENCY DEVICE PARASITICS ── */}
+        {(comp.kind === 'bjt_npn' || comp.kind === 'bjt_pnp' || comp.kind.startsWith('mosfet_') || comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'led' || comp.kind === 'resistor') && (
+          <div className={`p-3 rounded-xl border space-y-2.5 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-purple-400 font-bold text-xs">⚡ High-Frequency Parasitics</span>
+              <span className="text-[9px] font-mono text-slate-500">Capacitive Stamping</span>
+            </div>
+
+            {/* BJT Parasitics */}
+            {(comp.kind === 'bjt_npn' || comp.kind === 'bjt_pnp') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">Base-Emitter (C_be)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={((params.cbe ?? 8e-12) * 1e12).toFixed(1)}
+                      onChange={(e) => updateComponentParams(comp.id, { cbe: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                      className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">Base-Collector Miller (C_bc)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={((params.cbc ?? 3e-12) * 1e12).toFixed(1)}
+                      onChange={(e) => updateComponentParams(comp.id, { cbc: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                      className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MOSFET Parasitics */}
+            {comp.kind.startsWith('mosfet_') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">Gate-Source (C_gs)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="1"
+                      value={((params.cgs ?? 10e-12) * 1e12).toFixed(1)}
+                      onChange={(e) => updateComponentParams(comp.id, { cgs: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                      className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">Gate-Drain Miller (C_gd)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={((params.cgd ?? 4e-12) * 1e12).toFixed(1)}
+                      onChange={(e) => updateComponentParams(comp.id, { cgd: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                      className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">Drain-Source (C_ds)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={((params.cds ?? 5e-12) * 1e12).toFixed(1)}
+                      onChange={(e) => updateComponentParams(comp.id, { cds: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                      className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Diode / LED Parasitic Junction Capacitance */}
+            {(comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'led') && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">Junction Capacitance (C_j)</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={((params.cj ?? 2.5e-12) * 1e12).toFixed(1)}
+                    onChange={(e) => updateComponentParams(comp.id, { cj: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                    className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                </div>
+              </div>
+            )}
+
+            {/* Resistor Parasitic Parallel Capacitance */}
+            {comp.kind === 'resistor' && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">Parasitic Parallel (C_p)</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={((params.cp ?? 0.2e-12) * 1e12).toFixed(1)}
+                    onChange={(e) => updateComponentParams(comp.id, { cp: (parseFloat(e.target.value) || 0) * 1e-12 })}
+                    className="w-16 px-1.5 py-0.5 rounded border text-right font-mono text-xs bg-slate-950 border-slate-700 text-white"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono">pF</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -55,6 +55,7 @@ export const LogicAnalyzerModal: React.FC = () => {
   const wires: Wire[] = netlist.wires;
   const logicSettings = useCircuitStore((s) => s.logicSettings);
   const updateLogicSettings = useCircuitStore((s) => s.updateLogicSettings);
+  const circuitError = useCircuitStore((s) => s.circuitError);
   const theme = useCircuitStore((s) => s.theme);
   const isDark = theme === 'dark';
 
@@ -239,7 +240,16 @@ export const LogicAnalyzerModal: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animId: number;
+    let animId: number | null = null;
+    const isSimRunning = simulationState.status === 'running' && !circuitError && !isPaused;
+
+    if (!isSimRunning) {
+      if (pausedTimeRef.current === null) {
+        pausedTimeRef.current = simulationState.currentTime;
+      }
+    } else {
+      pausedTimeRef.current = null;
+    }
 
     const render = () => {
       const w = canvas.width;
@@ -391,12 +401,16 @@ export const LogicAnalyzerModal: React.FC = () => {
         ctx.fillText(timeLabel, Math.min(hoverX + 8, w - 81), 18);
       }
 
-      animId = requestAnimationFrame(render);
+      if (isSimRunning) {
+        animId = requestAnimationFrame(render);
+      }
     };
 
     render();
-    return () => cancelAnimationFrame(animId);
-  }, [show, selectedChannels, logicTraces, logicSettings, simulationState.currentTime, isPaused, getNetDisplayName, hoverX]);
+    return () => {
+      if (animId !== null) cancelAnimationFrame(animId);
+    };
+  }, [show, selectedChannels, logicTraces, logicSettings, simulationState.status, simulationState.currentTime, circuitError, isPaused, getNetDisplayName, hoverX]);
 
   // ── Save Paused Screen as PNG Image ──
   const handleSaveImage = () => {

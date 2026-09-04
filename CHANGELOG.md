@@ -1,7 +1,33 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to **VirtualLab-HIL** are documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.0] - 2026-09-05
+
+### Added
+- **Physical Wire Current Direction with RMS Potential Gradient**:
+  - Accurate wire flow animation for both AC and DC circuits evaluated using terminal RMS energy gradients ($V_{rms}$) and conventional source-to-ground physics.
+  - Automatic detection of active sources, grounds, and passive device drops ($|V_{rms}(p) - V_{rms}(n)|$), ensuring current never animates backwards into power sources.
+- **Primary Analog Variable Markers (Truth Table Logic)**:
+  - Component variable markers (`Vi`, `Vo`, `Vcc`, `Vce`, `Ic`, `f`) displaying canvas badges `📈 [Label]`.
+  - 1-click "Auto-Tag" tool that intelligently labels input sources, output loads, and transistor terminals.
+- **Formulas & Derived Variables Engine**:
+  - Section to manage secondary/tertiary variables ($G_v = V_o / V_i$, $A_v\text{ (dB)} = 20\log_{10}(|V_o/V_i|)$, $P = V_o \times I_o$, $P_{bjt} = V_{ce} \times I_c$).
+  - Full variable scope mapping allowing marked labels to be evaluated directly in custom math formulas with `log10`, `abs`, and `sqrt`.
+- **High-Frequency Parasitic Capacitance Modeling**:
+  - MNA solver companion stamping for $C_{be}, C_{bc}$ (BJTs - base-emitter and base-collector Miller junctions), $C_{gs}, C_{gd}, C_{ds}$ (MOSFETs), $C_j$ (Diodes/LEDs), and $C_p$ (Resistors).
+  - Configurable high-frequency parasitics in Component Inspector with picofarad (pF) inputs.
+- **Bode Frequency Sweeper & uPlot Resilience**:
+  - Small-signal reactive companion impedance scaling ($h = \frac{1}{2\pi f}$) and sinusoidal peak excitation for AC frequency response sweeps.
+  - Guaranteed monotonically ascending X-axis sanitization preventing blank charts or uPlot crashes.
+
+### Fixed
+- **Oscilloscope Background Execution**:
+  - Fixed background probe recording so sampling and circular buffer updates only run when instrument modals are open.
+  - Fully halted background calculation and animation loops when paused or tripped by circuit auto-cut / error.
+- **Inductor Pin Identification in MNA Solver**:
+  - Fixed pin matching for inductors supporting both `p`/`n` and `1`/`2` identifiers.
 
 ---
 

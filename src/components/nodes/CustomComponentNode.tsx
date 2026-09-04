@@ -832,6 +832,14 @@ export const CustomComponentNode: React.FC<NodeProps> = memo(({ id, data, select
               📊 {params.truthTableLabel}
             </span>
           )}
+          {params.analogMarker && (
+            <span
+              title={`Primary Variable Marker: [${params.analogMarker.label}] (${params.analogMarker.variableKey})`}
+              className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 font-bold shrink-0 shadow-sm flex items-center gap-0.5"
+            >
+              📈 [{params.analogMarker.label}]
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1 shrink-0">

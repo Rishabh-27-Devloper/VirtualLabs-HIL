@@ -50,6 +50,8 @@ export class SimulationDispatcher {
   private prevClkLevels: Record<string, LogicLevel> = {};
   private inductorCurrents: Record<string, number> = {};
   private activeHILOverrides: Record<string, number> = {};
+  private netRmsAvg: Record<string, number> = {};
+  private hasScopeComponents = false;
 
   private ws: WebSocket | null = null;
   private lastEgressSentTime = 0;
@@ -83,6 +85,7 @@ export class SimulationDispatcher {
   ) {
     this.netlist = netlist;
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.hasScopeComponents = Object.values(netlist.components).some((c) => c.kind === 'oscilloscope');
     this.onStateUpdate = onStateUpdate ?? null;
     this.onErrorCallback = onErrorCallback ?? null;
     this.state = this._makeInitialState();
@@ -91,8 +94,17 @@ export class SimulationDispatcher {
 
   updateNetlist(netlist: Netlist) {
     this.netlist = netlist;
+    this.hasScopeComponents = Object.values(netlist.components).some((c) => c.kind === 'oscilloscope');
     this._buildWireMap();
     this._resetProbes();
+  }
+
+  setRecordingProbes(enabled: boolean) {
+    this.config.recordProbes = enabled;
+    this.state.config.recordProbes = enabled;
+    if (!enabled) {
+      this._resetProbes();
+    }
   }
 
   updateConfig(config: Partial<SimulationConfig>) {
@@ -581,27 +593,138 @@ export class SimulationDispatcher {
       }
     }
 
-    // ─── Map Solution to Probes & Components ───
-    this._sampleProbes(x, nodeIndex, t);
+    // ─── Calculate Running RMS Node Voltages & Sample Probes ───
+    const netRmsVoltages: Record<string, number> = {};
+    for (const [netId] of Object.entries(this.netlist.netNodes)) {
+      const idx = nodeIndex[netId];
+      const v = idx !== undefined && idx > 0 ? (x[idx - 1] ?? 0) : 0;
+      const vSq = v * v;
+      this.netRmsAvg[netId] = this.netRmsAvg[netId] !== undefined
+        ? this.netRmsAvg[netId] * 0.95 + vSq * 0.05
+        : vSq;
+      netRmsVoltages[netId] = Math.sqrt(this.netRmsAvg[netId]);
+    }
+    this.state.netRmsVoltages = netRmsVoltages;
+
+    const shouldRecordProbes = Boolean(this.config.recordProbes && this.state.status === 'running');
+    if (shouldRecordProbes) {
+      this._sampleProbes(x, nodeIndex, t);
+    }
 
     // Update each component's local simState
     for (const comp of Object.values(this.netlist.components)) {
       const meta = COMPONENT_REGISTRY[comp.kind];
       const nodeVoltages: Record<string, number> = {};
+      const nodeRmsVoltages: Record<string, number> = {};
       if (meta) {
         for (const pin of meta.pins) {
           const netId = getPinNetId(this.netlist.wires, comp.id, pin.id);
           if (netId) {
             const idx = nodeIndex[netId];
-            nodeVoltages[pin.id] = idx !== undefined && idx > 0 ? (x[idx - 1] ?? 0) : 0;
+            const v = idx !== undefined && idx > 0 ? (x[idx - 1] ?? 0) : 0;
+            nodeVoltages[pin.id] = v;
+            nodeRmsVoltages[pin.id] = netRmsVoltages[netId] ?? Math.abs(v);
           } else {
             nodeVoltages[pin.id] = 0;
+            nodeRmsVoltages[pin.id] = 0;
           }
         }
       }
+
+      // Compute physical branch currents for live badge display & direction sensing
+      const branchCurrents: Record<string, number> = {};
+      if (comp.kind === 'resistor') {
+        const R = Math.max(comp.params.resistance ?? 1000, 1e-6);
+        const vDiff = (nodeVoltages['p'] ?? 0) - (nodeVoltages['n'] ?? 0);
+        const iR = vDiff / R;
+        branchCurrents['p'] = iR;
+        branchCurrents['n'] = -iR;
+        branchCurrents['1'] = iR;
+        branchCurrents['2'] = -iR;
+      } else if (comp.kind === 'capacitor') {
+        const C = comp.params.capacitance ?? 1e-6;
+        const vDiffRms = Math.abs((nodeRmsVoltages['p'] ?? 0) - (nodeRmsVoltages['n'] ?? 0));
+        const iC = Math.max(1e-9, 2 * Math.PI * 1000 * C * vDiffRms);
+        const sign = (nodeVoltages['p'] ?? 0) >= (nodeVoltages['n'] ?? 0) ? 1 : -1;
+        branchCurrents['p'] = iC * sign;
+        branchCurrents['n'] = -iC * sign;
+        branchCurrents['1'] = iC * sign;
+        branchCurrents['2'] = -iC * sign;
+      } else if (comp.kind === 'inductor') {
+        const L = Math.max(comp.params.inductance ?? 10e-3, 1e-9);
+        const vDiffRms = Math.abs((nodeRmsVoltages['p'] ?? 0) - (nodeRmsVoltages['n'] ?? 0));
+        const iL = vDiffRms / Math.max(2 * Math.PI * 1000 * L, 1e-3);
+        const sign = (nodeVoltages['p'] ?? 0) >= (nodeVoltages['n'] ?? 0) ? 1 : -1;
+        branchCurrents['p'] = iL * sign;
+        branchCurrents['n'] = -iL * sign;
+        branchCurrents['1'] = iL * sign;
+        branchCurrents['2'] = -iL * sign;
+      } else if (comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'led') {
+        const vDiff = (nodeVoltages['p'] ?? 0) - (nodeVoltages['n'] ?? 0);
+        const Is = comp.params.saturationCurrent ?? 1e-14;
+        const iD = vDiff > 0.3 ? Is * (Math.exp(Math.min(vDiff / 0.026, 40)) - 1) : 0;
+        branchCurrents['p'] = iD;
+        branchCurrents['n'] = -iD;
+        branchCurrents['A'] = iD;
+        branchCurrents['K'] = -iD;
+      } else if (comp.kind === 'bjt_npn') {
+        const vBe = (nodeVoltages['base'] ?? 0) - (nodeVoltages['emitter'] ?? 0);
+        const vCe = (nodeVoltages['collector'] ?? 0) - (nodeVoltages['emitter'] ?? 0);
+        const beta = comp.params.beta ?? 100;
+        const Is = comp.params.saturationCurrent ?? 1e-14;
+        const iB = vBe > 0.4 ? (Is / beta) * (Math.exp(Math.min(vBe / 0.026, 40)) - 1) : 0;
+        const iC = iB * beta * Math.max(0, Math.min(1, vCe / 0.2));
+        branchCurrents['base'] = iB;
+        branchCurrents['collector'] = iC;
+        branchCurrents['emitter'] = -(iB + iC);
+      } else if (comp.kind === 'bjt_pnp') {
+        const vEb = (nodeVoltages['emitter'] ?? 0) - (nodeVoltages['base'] ?? 0);
+        const vEc = (nodeVoltages['emitter'] ?? 0) - (nodeVoltages['collector'] ?? 0);
+        const beta = comp.params.beta ?? 100;
+        const Is = comp.params.saturationCurrent ?? 1e-14;
+        const iB = vEb > 0.4 ? -(Is / beta) * (Math.exp(Math.min(vEb / 0.026, 40)) - 1) : 0;
+        const iC = -Math.abs(iB) * beta * Math.max(0, Math.min(1, vEc / 0.2));
+        branchCurrents['base'] = iB;
+        branchCurrents['collector'] = iC;
+        branchCurrents['emitter'] = -(iB + iC);
+      } else if (comp.kind === 'mosfet_n_enh' || comp.kind === 'mosfet_n_dep') {
+        const vGs = (nodeVoltages['gate'] ?? 0) - (nodeVoltages['source'] ?? 0);
+        const vTh = comp.params.vth ?? (comp.kind === 'mosfet_n_dep' ? -1.5 : 2.0);
+        const kn = comp.params.kn ?? 0.002;
+        const vEff = vGs - vTh;
+        const iD = vEff > 0 ? (kn / 2) * vEff * vEff : 0;
+        branchCurrents['drain'] = iD;
+        branchCurrents['source'] = -iD;
+        branchCurrents['gate'] = 0;
+      } else if (comp.kind === 'mosfet_p_enh' || comp.kind === 'mosfet_p_dep') {
+        const vSg = (nodeVoltages['source'] ?? 0) - (nodeVoltages['gate'] ?? 0);
+        const vTh = comp.params.vth ?? (comp.kind === 'mosfet_p_dep' ? 1.5 : -2.0);
+        const kp = comp.params.kn ?? 0.002;
+        const vEff = vSg - Math.abs(vTh);
+        const iD = vEff > 0 ? (kp / 2) * vEff * vEff : 0;
+        branchCurrents['source'] = iD;
+        branchCurrents['drain'] = -iD;
+        branchCurrents['gate'] = 0;
+      } else if (comp.kind === 'opamp') {
+        const vOut = nodeVoltages['out'] ?? 0;
+        const rOut = Math.max(comp.params.rout ?? 50, 1);
+        branchCurrents['out'] = vOut / rOut;
+        branchCurrents['inp'] = 0;
+        branchCurrents['inn'] = 0;
+      } else if (comp.kind === 'dc_voltage' || comp.kind === 'ac_voltage' || comp.kind === 'signal_generator') {
+        const vP = nodeVoltages['p'] ?? nodeVoltages['out'] ?? 0;
+        const vN = nodeVoltages['n'] ?? nodeVoltages['gnd'] ?? 0;
+        const iEstimated = Math.max(0.001, Math.abs(vP - vN) / 100);
+        branchCurrents['p'] = iEstimated;
+        branchCurrents['out'] = iEstimated;
+        branchCurrents['n'] = -iEstimated;
+        branchCurrents['gnd'] = -iEstimated;
+      }
+
       comp.simState = {
         nodeVoltages,
-        branchCurrents: {},
+        nodeRmsVoltages,
+        branchCurrents,
       };
 
       if (isDigitalComponent(comp.kind)) {
@@ -623,7 +746,7 @@ export class SimulationDispatcher {
         comp.params.voltage = Math.max(0, vP - vN);
       }
 
-      if (comp.kind === 'signal_generator' || comp.kind === 'ac_voltage') {
+      if ((comp.kind === 'signal_generator' || comp.kind === 'ac_voltage') && shouldRecordProbes) {
         const netId = getPinNetId(this.netlist.wires, comp.id, 'out') ?? getPinNetId(this.netlist.wires, comp.id, 'p');
         if (netId) {
           const v = evaluateWaveform(
@@ -639,7 +762,7 @@ export class SimulationDispatcher {
         }
       }
 
-      if (comp.kind === 'oscilloscope') {
+      if (comp.kind === 'oscilloscope' && shouldRecordProbes) {
         const ch = comp.params.scopeChannel ?? 1;
         const vP = nodeVoltages['p'] ?? 0;
         const vN = nodeVoltages['n'] ?? 0;
@@ -655,6 +778,7 @@ export class SimulationDispatcher {
       if (comp.simState) {
         compStates[comp.id] = {
           nodeVoltages: { ...comp.simState.nodeVoltages },
+          nodeRmsVoltages: { ...comp.simState.nodeRmsVoltages },
           branchCurrents: { ...comp.simState.branchCurrents },
           logicState: { ...comp.simState.logicState },
         };

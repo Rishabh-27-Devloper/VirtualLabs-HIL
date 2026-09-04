@@ -13,6 +13,8 @@ export interface CircuitVariable {
   category: 'source' | 'voltage' | 'current' | 'node';
   componentId?: string;
   paramKey?: string;
+  isMarked?: boolean;
+  markerLabel?: string;
 }
 
 export interface SweepOptions {
@@ -35,136 +37,134 @@ export function extractCircuitVariables(netlist: Netlist): CircuitVariable[] {
   const comps = netlist.components;
 
   Object.values(comps).forEach((c) => {
-    const label = c.label || c.id;
+    const rawLabel = c.label || c.id;
+    const marker = c.params?.analogMarker;
+
+    const addVar = (metric: string, v: Omit<CircuitVariable, 'id'>) => {
+      const isMarked = marker && marker.variableKey === metric;
+      const displayLabel = isMarked
+        ? `📈 [${marker.label}] ${v.label}`
+        : v.label;
+      vars.push({
+        ...v,
+        id: c.id + ':' + metric,
+        label: displayLabel,
+        isMarked: Boolean(isMarked),
+        markerLabel: isMarked ? marker.label : undefined,
+      });
+    };
 
     if (c.kind === 'dc_voltage') {
-      vars.push({
-        id: c.id + ':voltage',
-        label: label + ' Voltage (V)',
+      addVar('voltage', {
+        label: rawLabel + ' Voltage (V)',
         unit: 'V',
         category: 'source',
         componentId: c.id,
         paramKey: 'voltage',
       });
     } else if (c.kind === 'ac_voltage' || c.kind === 'signal_generator') {
-      vars.push({
-        id: c.id + ':amplitude',
-        label: label + ' Amplitude (V)',
+      addVar('amplitude', {
+        label: rawLabel + ' Amplitude (V)',
         unit: 'V',
         category: 'source',
         componentId: c.id,
         paramKey: 'amplitude',
       });
-      vars.push({
-        id: c.id + ':frequency',
-        label: label + ' Frequency (Hz)',
+      addVar('frequency', {
+        label: rawLabel + ' Frequency (Hz)',
         unit: 'Hz',
         category: 'source',
         componentId: c.id,
         paramKey: 'frequency',
       });
     } else if (c.kind === 'current_source') {
-      vars.push({
-        id: c.id + ':current',
-        label: label + ' Current (A)',
+      addVar('current', {
+        label: rawLabel + ' Current (A)',
         unit: 'A',
         category: 'source',
         componentId: c.id,
         paramKey: 'current',
       });
     } else if (c.kind === 'resistor') {
-      vars.push({
-        id: c.id + ':resistance',
-        label: label + ' Resistance (Ohms)',
+      addVar('resistance', {
+        label: rawLabel + ' Resistance (Ohms)',
         unit: 'Ohms',
         category: 'source',
         componentId: c.id,
         paramKey: 'resistance',
       });
-      vars.push({
-        id: c.id + ':v_drop',
-        label: label + ' Voltage Drop (V_R)',
+      addVar('v_drop', {
+        label: rawLabel + ' Voltage Drop (V_R)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':current',
-        label: label + ' Current (I_R)',
+      addVar('current', {
+        label: rawLabel + ' Current (I_R)',
         unit: 'A',
         category: 'current',
         componentId: c.id,
       });
     } else if (c.kind === 'diode' || c.kind === 'zener' || c.kind === 'led') {
-      vars.push({
-        id: c.id + ':v_drop',
-        label: label + ' Forward Voltage (V_D)',
+      addVar('v_drop', {
+        label: rawLabel + ' Forward Voltage (V_D)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':current',
-        label: label + ' Diode Current (I_D)',
+      addVar('current', {
+        label: rawLabel + ' Diode Current (I_D)',
         unit: 'A',
         category: 'current',
         componentId: c.id,
       });
     } else if (c.kind === 'bjt_npn' || c.kind === 'bjt_pnp') {
-      vars.push({
-        id: c.id + ':vce',
-        label: label + ' V_CE (Collector-Emitter)',
+      addVar('vce', {
+        label: rawLabel + ' V_CE (Collector-Emitter)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':vbe',
-        label: label + ' V_BE (Base-Emitter)',
+      addVar('vbe', {
+        label: rawLabel + ' V_BE (Base-Emitter)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':ic',
-        label: label + ' Collector Current (I_C)',
+      addVar('ic', {
+        label: rawLabel + ' Collector Current (I_C)',
         unit: 'A',
         category: 'current',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':ib',
-        label: label + ' Base Current (I_B)',
+      addVar('ib', {
+        label: rawLabel + ' Base Current (I_B)',
         unit: 'A',
         category: 'current',
         componentId: c.id,
       });
     } else if (c.kind.startsWith('mosfet_')) {
-      vars.push({
-        id: c.id + ':vds',
-        label: label + ' V_DS (Drain-Source)',
+      addVar('vds', {
+        label: rawLabel + ' V_DS (Drain-Source)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':vgs',
-        label: label + ' V_GS (Gate-Source)',
+      addVar('vgs', {
+        label: rawLabel + ' V_GS (Gate-Source)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
       });
-      vars.push({
-        id: c.id + ':id',
-        label: label + ' Drain Current (I_D)',
+      addVar('id', {
+        label: rawLabel + ' Drain Current (I_D)',
         unit: 'A',
         category: 'current',
         componentId: c.id,
       });
     } else if (c.kind === 'opamp') {
-      vars.push({
-        id: c.id + ':vout',
-        label: label + ' Output Voltage (V_out)',
+      addVar('vout', {
+        label: rawLabel + ' Output Voltage (V_out)',
         unit: 'V',
         category: 'voltage',
         componentId: c.id,
@@ -183,7 +183,31 @@ export function extractCircuitVariables(netlist: Netlist): CircuitVariable[] {
     });
   }
 
+  // Marked primary variables are hoisted to the top of the variable list
+  vars.sort((a, b) => {
+    if (a.isMarked && !b.isMarked) return -1;
+    if (!a.isMarked && b.isMarked) return 1;
+    return 0;
+  });
+
   return vars;
+}
+
+export function getMarkedVariableValues(
+  netlist: Netlist,
+  compStates: Record<string, ComponentSimState>
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const comp of Object.values(netlist.components)) {
+    const marker = comp.params?.analogMarker;
+    if (marker?.label && marker?.variableKey) {
+      const varId = `${comp.id}:${marker.variableKey}`;
+      const val = resolveVariableValue(varId, compStates, netlist.components);
+      result[marker.label] = val;
+      result[marker.label.toLowerCase()] = val;
+    }
+  }
+  return result;
 }
 
 function resolveVariableValue(
@@ -192,10 +216,19 @@ function resolveVariableValue(
   comps: Record<string, ComponentInstance>
 ): number {
   if (varId.startsWith('node:')) {
+    const targetNetId = varId.replace('node:', '');
+    for (const state of Object.values(compStates)) {
+      if (state && state.nodeVoltages) {
+        for (const [pinId, v] of Object.entries(state.nodeVoltages)) {
+          if (pinId === targetNetId) return v;
+        }
+      }
+    }
+    // Fallback: search for first non-zero voltage across nodes
     for (const state of Object.values(compStates)) {
       if (state && state.nodeVoltages) {
         for (const v of Object.values(state.nodeVoltages)) {
-          return v;
+          if (v !== 0) return v;
         }
       }
     }
@@ -218,47 +251,48 @@ function resolveVariableValue(
       return comp.params.frequency ?? 1000;
     case 'current':
       if (comp.kind === 'current_source') return comp.params.current ?? 0;
-      if (state && state.branchCurrents && state.branchCurrents['p'] !== undefined) return Math.abs(state.branchCurrents['p']);
-      if (comp.kind === 'resistor' && comp.params.resistance) {
-        const vDiff = (state && state.nodeVoltages ? state.nodeVoltages['p'] ?? 0 : 0) - (state && state.nodeVoltages ? state.nodeVoltages['n'] ?? 0 : 0);
-        return vDiff / comp.params.resistance;
+      if (state && state.branchCurrents) {
+        const cur = state.branchCurrents['collector'] ?? state.branchCurrents['c'] ??
+                    state.branchCurrents['drain'] ?? state.branchCurrents['d'] ??
+                    state.branchCurrents['p'] ?? state.branchCurrents['1'] ?? 0;
+        return Math.abs(cur);
       }
       return 0;
     case 'resistance':
       return comp.params.resistance ?? 1000;
     case 'v_drop': {
-      const vp = state && state.nodeVoltages ? state.nodeVoltages['p'] ?? 0 : 0;
-      const vn = state && state.nodeVoltages ? state.nodeVoltages['n'] ?? 0 : 0;
+      const vp = state?.nodeVoltages?.['p'] ?? state?.nodeVoltages?.['1'] ?? state?.nodeVoltages?.['A'] ?? 0;
+      const vn = state?.nodeVoltages?.['n'] ?? state?.nodeVoltages?.['2'] ?? state?.nodeVoltages?.['K'] ?? 0;
       return vp - vn;
     }
     case 'vce': {
-      const vc = state && state.nodeVoltages ? state.nodeVoltages['c'] ?? 0 : 0;
-      const ve = state && state.nodeVoltages ? state.nodeVoltages['e'] ?? 0 : 0;
+      const vc = state?.nodeVoltages?.['collector'] ?? state?.nodeVoltages?.['c'] ?? 0;
+      const ve = state?.nodeVoltages?.['emitter'] ?? state?.nodeVoltages?.['e'] ?? 0;
       return vc - ve;
     }
     case 'vbe': {
-      const vb = state && state.nodeVoltages ? state.nodeVoltages['b'] ?? 0 : 0;
-      const ve = state && state.nodeVoltages ? state.nodeVoltages['e'] ?? 0 : 0;
+      const vb = state?.nodeVoltages?.['base'] ?? state?.nodeVoltages?.['b'] ?? 0;
+      const ve = state?.nodeVoltages?.['emitter'] ?? state?.nodeVoltages?.['e'] ?? 0;
       return vb - ve;
     }
     case 'ic':
-      return state && state.branchCurrents ? state.branchCurrents['c'] ?? 0 : 0;
+      return state?.branchCurrents?.['collector'] ?? state?.branchCurrents?.['c'] ?? 0;
     case 'ib':
-      return state && state.branchCurrents ? state.branchCurrents['b'] ?? 0 : 0;
+      return state?.branchCurrents?.['base'] ?? state?.branchCurrents?.['b'] ?? 0;
     case 'vds': {
-      const vd = state && state.nodeVoltages ? state.nodeVoltages['d'] ?? 0 : 0;
-      const vs = state && state.nodeVoltages ? state.nodeVoltages['s'] ?? 0 : 0;
+      const vd = state?.nodeVoltages?.['drain'] ?? state?.nodeVoltages?.['d'] ?? 0;
+      const vs = state?.nodeVoltages?.['source'] ?? state?.nodeVoltages?.['s'] ?? 0;
       return vd - vs;
     }
     case 'vgs': {
-      const vg = state && state.nodeVoltages ? state.nodeVoltages['g'] ?? 0 : 0;
-      const vs = state && state.nodeVoltages ? state.nodeVoltages['s'] ?? 0 : 0;
+      const vg = state?.nodeVoltages?.['gate'] ?? state?.nodeVoltages?.['g'] ?? 0;
+      const vs = state?.nodeVoltages?.['source'] ?? state?.nodeVoltages?.['s'] ?? 0;
       return vg - vs;
     }
     case 'id':
-      return state && state.branchCurrents ? state.branchCurrents['d'] ?? 0 : 0;
+      return state?.branchCurrents?.['drain'] ?? state?.branchCurrents?.['d'] ?? 0;
     case 'vout':
-      return state && state.nodeVoltages ? state.nodeVoltages['out'] ?? 0 : 0;
+      return state?.nodeVoltages?.['out'] ?? 0;
     default:
       return 0;
   }
@@ -288,34 +322,49 @@ export function computeStatesFromMna(
     }
     const branchCurrents: Record<string, number> = {};
     if (comp.kind === 'resistor' && comp.params.resistance) {
-      const vDiff = (nodeVoltages['p'] ?? 0) - (nodeVoltages['n'] ?? 0);
-      branchCurrents['p'] = vDiff / comp.params.resistance;
-      branchCurrents['n'] = -branchCurrents['p'];
+      const vp = nodeVoltages['p'] ?? nodeVoltages['1'] ?? 0;
+      const vn = nodeVoltages['n'] ?? nodeVoltages['2'] ?? 0;
+      const vDiff = vp - vn;
+      const cur = vDiff / comp.params.resistance;
+      branchCurrents['p'] = cur;
+      branchCurrents['n'] = -cur;
+      branchCurrents['1'] = cur;
+      branchCurrents['2'] = -cur;
     } else if (comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'led') {
-      const vDiff = (nodeVoltages['p'] ?? 0) - (nodeVoltages['n'] ?? 0);
+      const vp = nodeVoltages['p'] ?? nodeVoltages['A'] ?? 0;
+      const vn = nodeVoltages['n'] ?? nodeVoltages['K'] ?? 0;
+      const vDiff = vp - vn;
       const Is = comp.params.saturationCurrent ?? 1e-12;
       const Vt = 0.026;
       const id = Is * (Math.exp(Math.min(vDiff / Vt, 30)) - 1);
       branchCurrents['p'] = id;
       branchCurrents['n'] = -id;
+      branchCurrents['A'] = id;
+      branchCurrents['K'] = -id;
     } else if (comp.kind === 'bjt_npn' || comp.kind === 'bjt_pnp') {
-      const vb = nodeVoltages['b'] ?? 0;
-      const ve = nodeVoltages['e'] ?? 0;
-      const vc = nodeVoltages['c'] ?? 0;
+      const vb = nodeVoltages['base'] ?? nodeVoltages['b'] ?? 0;
+      const ve = nodeVoltages['emitter'] ?? nodeVoltages['e'] ?? 0;
+      const vc = nodeVoltages['collector'] ?? nodeVoltages['c'] ?? 0;
       const vbe = vb - ve;
       const vce = vc - ve;
       const beta = comp.params.beta ?? 100;
       const is = comp.params.saturationCurrent ?? 1e-14;
       const vt = 0.026;
-      const ib = (is / beta) * (Math.exp(Math.min(vbe / vt, 30)) - 1);
-      const ic = Math.max(0, beta * ib * (1 + Math.max(0, vce) / (comp.params.earlyVoltage ?? 100)));
+      const vbe_clamped = Math.max(Math.min(vbe, 0.8), -5);
+      const ib = (is / beta) * (Math.exp(vbe_clamped / vt) - 1);
+      const satFactor = Math.max(0, Math.min(1, vce / 0.2));
+      const earlyFactor = 1 + Math.max(0, vce) / (comp.params.earlyVoltage ?? 100);
+      const ic = is * (Math.exp(vbe_clamped / vt) - 1) * satFactor * earlyFactor;
       branchCurrents['b'] = ib;
       branchCurrents['c'] = ic;
       branchCurrents['e'] = -(ib + ic);
+      branchCurrents['base'] = ib;
+      branchCurrents['collector'] = ic;
+      branchCurrents['emitter'] = -(ib + ic);
     } else if (comp.kind.startsWith('mosfet_')) {
-      const vg = nodeVoltages['g'] ?? 0;
-      const vs = nodeVoltages['s'] ?? 0;
-      const vd = nodeVoltages['d'] ?? 0;
+      const vg = nodeVoltages['gate'] ?? nodeVoltages['g'] ?? 0;
+      const vs = nodeVoltages['source'] ?? nodeVoltages['s'] ?? 0;
+      const vd = nodeVoltages['drain'] ?? nodeVoltages['d'] ?? 0;
       const vgs = vg - vs;
       const vds = vd - vs;
       const vth = comp.params.vth ?? 2.0;
@@ -332,6 +381,9 @@ export function computeStatesFromMna(
       branchCurrents['d'] = id;
       branchCurrents['s'] = -id;
       branchCurrents['g'] = 0;
+      branchCurrents['drain'] = id;
+      branchCurrents['source'] = -id;
+      branchCurrents['gate'] = 0;
     }
 
     result[comp.id] = { nodeVoltages, branchCurrents };
@@ -470,20 +522,37 @@ export function runParameterSweepAsync(
         vol: 0.2,
         voh: 4.8,
       };
-      const mnaResult = solveMNA(testNetlist, simConfig, 0.001, null, 0, {}, {});
-      const compStates = computeStatesFromMna(testNetlist, mnaResult);
-      const xVal = resolveVariableValue(options.xVariableId, compStates, clonedComps);
-      let yVal = 0;
 
+      // Frequency response AC impedance matching
+      let simH = 0.001;
+      let simT = 0;
+      if (options.sweepParam === 'frequency') {
+        const freq = Math.max(1, currentSweepVal);
+        simH = 1 / (2 * Math.PI * freq);
+        simT = 1 / (4 * freq); // 90 deg for peak sinusoidal output
+      } else if (options.sweepParam === 'amplitude') {
+        simH = 0.001;
+        simT = 0.00025; // quarter period for 1kHz
+      }
+      const mnaResult = solveMNA(testNetlist, simConfig, simH, null, simT, {}, {});
+      const compStates = computeStatesFromMna(testNetlist, mnaResult);
+
+      const markedVars = getMarkedVariableValues(testNetlist, compStates);
+      const xVal = resolveVariableValue(options.xVariableId, compStates, clonedComps);
+      const rawY = resolveVariableValue(options.yVariableId, compStates, clonedComps);
+
+      let yVal = 0;
       if (options.customFormula) {
         yVal = evaluateFormula(options.customFormula, {
+          ...markedVars,
           x: xVal,
-          xVal: xVal,
+          xVal,
           v: xVal,
-          rawY: resolveVariableValue(options.yVariableId, compStates, clonedComps),
+          rawY,
+          y: rawY,
         });
       } else {
-        yVal = resolveVariableValue(options.yVariableId, compStates, clonedComps);
+        yVal = rawY;
       }
 
       const safeX = isNaN(xVal) || !isFinite(xVal) ? currentSweepVal : xVal;
@@ -505,6 +574,15 @@ export function runParameterSweepAsync(
     if (pointsProcessed < totalPoints) {
       requestAnimationFrame(stepChunk);
     } else {
+      // Ensure points are sorted and strictly ascending for uPlot compatibility
+      seriesList.forEach((s) => {
+        s.points.sort((a, b) => a.x - b.x);
+        for (let i = 1; i < s.points.length; i++) {
+          if (s.points[i].x <= s.points[i - 1].x) {
+            s.points[i].x = s.points[i - 1].x + 1e-6;
+          }
+        }
+      });
       onComplete(seriesList);
     }
   }

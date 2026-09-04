@@ -208,18 +208,34 @@ export function solveMNA(
         return nid ? (nodeIndex[nid] ?? 0) : 0;
       };
       const vNode = (ni: number) => (ni > 0 ? x[ni - 1] : 0);
+      const vPrevNode = (ni: number) => (ni > 0 && prevX && prevX[ni - 1] !== undefined ? prevX[ni - 1] : (ni > 0 ? x[ni - 1] : 0));
+
+      // Transient companion model for linear / parasitic capacitances
+      const stampCapacitor = (ni: number, nj: number, C: number) => {
+        if (C <= 0 || h <= 0 || (ni === 0 && nj === 0) || ni === nj) return;
+        const Geq = C / h;
+        // In companion modeling, Vprev is the voltage across the capacitor at the PREVIOUS timestep (t - h)
+        const Vprev = vPrevNode(ni) - vPrevNode(nj);
+        stampConductance(A, ni, nj, Geq);
+        stampCurrentSource(z, ni, nj, -Geq * Vprev);
+      };
 
       switch (kind) {
         case 'resistor': {
           const R = Math.max(params.resistance ?? 1000, 1e-6);
-          stampConductance(A, p('p'), p('n'), 1 / R);
+          const ni = p('p') || p('1');
+          const nj = p('n') || p('2');
+          stampConductance(A, ni, nj, 1 / R);
+          if (params.cp) {
+            stampCapacitor(ni, nj, params.cp);
+          }
           break;
         }
         case 'capacitor': {
           const C = params.capacitance ?? 1e-6;
           const Geq = C / h;
-          const ni = p('p'), nj = p('n');
-          const Vprev = vNode(ni) - vNode(nj);
+          const ni = p('p') || p('1'), nj = p('n') || p('2');
+          const Vprev = vPrevNode(ni) - vPrevNode(nj);
           stampConductance(A, ni, nj, Geq);
           stampCurrentSource(z, ni, nj, -Geq * Vprev);
           break;
@@ -227,7 +243,7 @@ export function solveMNA(
         case 'inductor': {
           const L = params.inductance ?? 0.01;
           const Geq = h / L;
-          const ni = p('1'), nj = p('2');
+          const ni = p('p') || p('1'), nj = p('n') || p('2');
           stampConductance(A, ni, nj, Geq);
           // Add history current source from previous inductor current
           const compId = comp.id;
@@ -271,12 +287,17 @@ export function solveMNA(
           break;
         }
         case 'diode':
-        case 'zener': {
+        case 'zener':
+        case 'led': {
           const Is = params.saturationCurrent ?? 1e-14;
-          const n_factor = params.ideality ?? 1;
+          const n_factor = params.ideality ?? (kind === 'led' ? 1.8 : 1);
           const nVt = n_factor * VT;
           const ni = p('p'), nj = p('n');
-          const Vd = Math.max(Math.min(vNode(ni) - vNode(nj), 1.2), -5);
+          const Vd = Math.max(Math.min(vNode(ni) - vNode(nj), 3.5), -5);
+
+          // Parasitic junction capacitance
+          const Cj = params.cj ?? (kind === 'led' ? 3e-12 : 2.5e-12);
+          stampCapacitor(ni, nj, Cj);
 
           if (kind === 'zener') {
             const Vz = params.zenerVoltage ?? 5.1;
@@ -307,6 +328,12 @@ export function solveMNA(
           const Vbe = vNode(nb) - vNode(ne);
           const Vce = vNode(nc) - vNode(ne);
           const Vbe_c = Math.max(Math.min(Vbe, 0.8), -5);
+
+          // Parasitic junction capacitances: Cbe (base-emitter), Cbc (Miller base-collector)
+          const Cbe = params.cbe ?? 8e-12;
+          const Cbc = params.cbc ?? 3e-12;
+          stampCapacitor(nb, ne, Cbe);
+          stampCapacitor(nb, nc, Cbc);
 
           // Base-Emitter Diode junction
           const Ibe = (Is / beta) * (Math.exp(Vbe_c / nVt_bjt) - 1);
@@ -345,6 +372,12 @@ export function solveMNA(
           const Vec = vNode(ne) - vNode(nc);
           const Veb_c = Math.max(Math.min(Veb, 0.8), -5);
 
+          // Parasitic junction capacitances: Cbe (base-emitter), Cbc (Miller base-collector)
+          const Cbe = params.cbe ?? 8e-12;
+          const Cbc = params.cbc ?? 3e-12;
+          stampCapacitor(nb, ne, Cbe);
+          stampCapacitor(nb, nc, Cbc);
+
           const Ieb = (Is / beta) * (Math.exp(Veb_c / nVt_bjt) - 1);
           const Geb = (Is / (beta * nVt_bjt)) * Math.exp(Veb_c / nVt_bjt) + GMIN;
           stampConductance(A, ne, nb, Geb);
@@ -380,6 +413,14 @@ export function solveMNA(
           const Vds = vNode(nd) - vNode(ns);
           const Vgs_eff = Vgs - Vth;
 
+          // Parasitic capacitances: Cgs (gate-source), Cgd (Miller gate-drain), Cds
+          const Cgs = params.cgs ?? 10e-12;
+          const Cgd = params.cgd ?? 4e-12;
+          const Cds = params.cds ?? 5e-12;
+          stampCapacitor(ng, ns, Cgs);
+          stampCapacitor(ng, nd, Cgd);
+          stampCapacitor(nd, ns, Cds);
+
           let Id = 0, Gds = GMIN, Gm_m = 0;
           if (Vgs_eff > 0) {
             if (Vds >= Vgs_eff) {
@@ -411,6 +452,14 @@ export function solveMNA(
           const Vsg = vNode(ns) - vNode(ng);
           const Vsd = vNode(ns) - vNode(nd);
           const Vsg_eff = Vsg - Math.abs(Vth);
+
+          // Parasitic capacitances: Cgs (gate-source), Cgd (Miller gate-drain), Cds
+          const Cgs = params.cgs ?? 10e-12;
+          const Cgd = params.cgd ?? 4e-12;
+          const Cds = params.cds ?? 5e-12;
+          stampCapacitor(ng, ns, Cgs);
+          stampCapacitor(ng, nd, Cgd);
+          stampCapacitor(nd, ns, Cds);
 
           let Id = 0, Gds = GMIN, Gm_m = 0;
           if (Vsg_eff > 0) {

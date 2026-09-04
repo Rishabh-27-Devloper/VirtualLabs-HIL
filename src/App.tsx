@@ -23,6 +23,8 @@ export function App() {
   const loadPreset = useCircuitStore((s) => s.loadPreset);
   const restoreSessionFromCache = useCircuitStore((s) => s.restoreSessionFromCache);
   const theme = useCircuitStore((s) => s.theme);
+  const showOscilloscope = useCircuitStore((s) => s.showOscilloscope);
+  const showLogicAnalyzer = useCircuitStore((s) => s.showLogicAnalyzer);
   const isDark = theme === 'dark';
 
   // Early warm-up ping to Render backend so it wakes up before user triggers HIL or AI features
@@ -77,9 +79,9 @@ export function App() {
       {/* Mobile Floating Action Dock (< 768px) */}
       <MobileBottomBar />
 
-      {/* Floating Instrument Modals */}
-      <OscilloscopeModal />
-      <LogicAnalyzerModal />
+      {/* Floating Instrument Modals (Only mounted when active to prevent background calculation overhead) */}
+      {showOscilloscope && <OscilloscopeModal />}
+      {showLogicAnalyzer && <LogicAnalyzerModal />}
       <SignalGeneratorModal />
       <HILBridgeBar />
 

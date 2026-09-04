@@ -84,8 +84,10 @@ export const OscilloscopeModal: React.FC = () => {
   const scopeSettings = useCircuitStore((s) => s.scopeSettings);
   const updateScopeSettings = useCircuitStore((s) => s.updateScopeSettings);
   const setSpeedMultiplier = useCircuitStore((s) => s.setSpeedMultiplier);
+  const circuitError = useCircuitStore((s) => s.circuitError);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastMetricsTimeRef = useRef<number>(0);
 
   // Active channel selection tab in sidebar
   const [selectedChannelTab, setSelectedChannelTab] = useState<1 | 2 | 3 | 4>(1);
@@ -223,7 +225,17 @@ export const OscilloscopeModal: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animId: number;
+    let animId: number | null = null;
+    const isSimRunning = simulationState.status === 'running' && !circuitError && !isPaused;
+
+    // Freeze snapshot time if transitioning to paused or error/autocut
+    if (!isSimRunning) {
+      if (pausedTimeRef.current === null) {
+        pausedTimeRef.current = simulationState.currentTime;
+      }
+    } else {
+      pausedTimeRef.current = null;
+    }
 
     const render = () => {
       const {
@@ -276,6 +288,12 @@ export const OscilloscopeModal: React.FC = () => {
         ctx.stroke();
       };
 
+      const now = performance.now();
+      const shouldUpdateMetrics = now - lastMetricsTimeRef.current >= 100;
+      if (shouldUpdateMetrics) {
+        lastMetricsTimeRef.current = now;
+      }
+
       // Helper to compute and draw waveform
       const processWaveform = (
         netId: string,
@@ -292,7 +310,8 @@ export const OscilloscopeModal: React.FC = () => {
         const stream = liveProbes[netId];
         if (!stream || stream.count < 2) return;
         const timeSpan = liveScopeSettings.timeDiv * 10; // 10 horizontal divisions
-        const curTime = livePaused && pausedTimeRef.current !== null
+        const isFrozen = livePaused || liveSimState.status !== 'running' || circuitError !== null;
+        const curTime = isFrozen && pausedTimeRef.current !== null
           ? pausedTimeRef.current
           : liveSimState.currentTime;
         const startTime = curTime - timeSpan;
@@ -341,7 +360,9 @@ export const OscilloscopeModal: React.FC = () => {
           const dtObserved = points[0].t - points[points.length - 1].t;
           const freq = dtObserved > 0 && zeroCrossings > 0 ? (zeroCrossings / dtObserved) : 0;
 
-          onMetrics({ vpp, vrms, vavg, vmax: vMax, vmin: vMin, freq });
+          if (shouldUpdateMetrics || !isSimRunning) {
+            onMetrics({ vpp, vrms, vavg, vmax: vMax, vmin: vMin, freq });
+          }
 
           // Draw Waveform trace
           ctx.save();
@@ -421,19 +442,36 @@ export const OscilloscopeModal: React.FC = () => {
       }
 
       // Draw PAUSED / FROZEN banner if frozen
-      if (livePaused || liveSimState.status !== 'running') {
-        ctx.fillStyle = liveSimState.status === 'error' ? '#ef4444' : '#f59e0b';
+      if (livePaused || liveSimState.status !== 'running' || circuitError) {
+        ctx.fillStyle = (liveSimState.status === 'error' || circuitError) ? '#ef4444' : '#f59e0b';
         ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText(liveSimState.status === 'error' ? '⚠ PAUSED (ERROR/AUTO-CUT)' : '⏸ PAUSED / FROZEN', w - 18, 26);
+        ctx.fillText((liveSimState.status === 'error' || circuitError) ? '⚠ PAUSED (ERROR/AUTO-CUT)' : '⏸ PAUSED / FROZEN', w - 18, 26);
       }
 
-      animId = requestAnimationFrame(render);
+      // ONLY schedule continuous animation frames if simulation is running and unpaused
+      if (isSimRunning) {
+        animId = requestAnimationFrame(render);
+      }
     };
 
     render();
-    return () => cancelAnimationFrame(animId);
-  }, [show]);
+    return () => {
+      if (animId !== null) cancelAnimationFrame(animId);
+    };
+  }, [
+    show,
+    simulationState.status,
+    circuitError,
+    isPaused,
+    scopeSettings,
+    selectedChannelTab,
+    ch1Node,
+    ch2Node,
+    ch3Node,
+    ch4Node,
+    performanceMode,
+  ]);
 
   // Save / Export High-Res PNG Image of CRT Canvas
   const handleSaveImage = () => {

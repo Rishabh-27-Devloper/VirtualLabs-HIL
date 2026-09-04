@@ -7,7 +7,7 @@ import type { Node, Edge, Connection } from '@xyflow/react';
 import type {
   ComponentInstance, ComponentKind, ComponentParams, Netlist, Wire,
   NetNode, SimulationState, HilConnectionState, SimulationMode,
-  OscilloscopeSettings, LogicAnalyzerSettings,
+  OscilloscopeSettings, LogicAnalyzerSettings, DerivedVariable,
 } from '@/types/circuit';
 import { COMPONENT_REGISTRY } from '@/components/canvas/componentDefs';
 import {
@@ -95,6 +95,11 @@ export interface CircuitState {
   setShowTruthTable: (show: boolean) => void;
   showCharacteristicCurve: boolean;
   setShowCharacteristicCurve: (show: boolean) => void;
+  derivedVariables: DerivedVariable[];
+  addDerivedVariable: (v: Omit<DerivedVariable, 'id'>) => string;
+  updateDerivedVariable: (id: string, v: Partial<DerivedVariable>) => void;
+  removeDerivedVariable: (id: string) => void;
+  setAnalogMarker: (componentId: string, marker: { label: string; variableKey: string } | null) => void;
   showAICircuitModal: boolean;
   setShowAICircuitModal: (show: boolean) => void;
   loadGeneratedCircuit: (spec: any, appendMode?: boolean) => void;
@@ -293,7 +298,7 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
   };
 
   const syncNetlistWithDispatcher = () => {
-    const { components, edges, simulationState, performanceMode } = get();
+    const { components, edges, simulationState, performanceMode, showOscilloscope, showLogicAnalyzer } = get();
     const netlist = computeNetlist(components, edges);
     if (!dispatcher) {
       dispatcher = createDispatcher(
@@ -303,6 +308,7 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
           mode: simulationState.mode,
           performanceMode: performanceMode,
           speedMultiplier: simulationState.config?.speedMultiplier ?? DEFAULT_CONFIG.speedMultiplier,
+          recordProbes: showOscilloscope || showLogicAnalyzer,
         },
         (simState: SimulationState, hilState: HilConnectionState) => {
           set({ simulationState: simState, hilState });
@@ -432,6 +438,11 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     showPalette: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
     showTruthTable: false,
     showCharacteristicCurve: false,
+    derivedVariables: [
+      { id: 'gv_default', name: 'Gv', formula: 'Vo / Vi', unit: 'V/V', description: 'Voltage Gain (Vo / Vi)' },
+      { id: 'av_db_default', name: 'Av_dB', formula: '20 * log10(abs(Vo / Vi))', unit: 'dB', description: 'Voltage Gain (dB)' },
+      { id: 'p_diss_default', name: 'P_diss', formula: 'Vo * Io', unit: 'W', description: 'Power Dissipation' },
+    ],
 
     scopeSettings: {
       channel1NodeId: null,
@@ -786,8 +797,16 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
       logger.info('engine', `Performance Mode ${enabled ? 'ACTIVATED (Low CPU / 6 Sub-steps / Minimal Graphics)' : 'DEACTIVATED (Full Visual Quality)'}`);
     },
 
-    setShowOscilloscope: (show: boolean) => set({ showOscilloscope: show }),
-    setShowLogicAnalyzer: (show: boolean) => set({ showLogicAnalyzer: show }),
+    setShowOscilloscope: (show: boolean) => {
+      set({ showOscilloscope: show });
+      const { showLogicAnalyzer, dispatcher: d } = get();
+      if (d) d.setRecordingProbes(show || showLogicAnalyzer);
+    },
+    setShowLogicAnalyzer: (show: boolean) => {
+      set({ showLogicAnalyzer: show });
+      const { showOscilloscope, dispatcher: d } = get();
+      if (d) d.setRecordingProbes(show || showOscilloscope);
+    },
     setShowSignalGenerator: (show: boolean) => set({ showSignalGenerator: show }),
     setShowMultimeter: (show: boolean) => set({ showMultimeter: show }),
     setShowHILBridge: (show: boolean) => set({ showHILBridge: show }),
@@ -797,6 +816,41 @@ export const useCircuitStore = create<CircuitState>((set, get) => {
     toggleInspector: () => set((state) => ({ showInspector: !state.showInspector })),
     setShowTruthTable: (show: boolean) => set({ showTruthTable: show }),
     setShowCharacteristicCurve: (show: boolean) => set({ showCharacteristicCurve: show }),
+    addDerivedVariable: (v: Omit<DerivedVariable, 'id'>) => {
+      const id = 'var_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const newVar: DerivedVariable = { ...v, id };
+      set((state) => ({ derivedVariables: [...state.derivedVariables, newVar] }));
+      return id;
+    },
+    updateDerivedVariable: (id: string, updates: Partial<DerivedVariable>) => {
+      set((state) => ({
+        derivedVariables: state.derivedVariables.map((v) => (v.id === id ? { ...v, ...updates } : v)),
+      }));
+    },
+    removeDerivedVariable: (id: string) => {
+      set((state) => ({
+        derivedVariables: state.derivedVariables.filter((v) => v.id !== id),
+      }));
+    },
+    setAnalogMarker: (componentId: string, marker: { label: string; variableKey: string } | null) => {
+      const { components } = get();
+      const comp = components[componentId];
+      if (!comp) return;
+      pushSnapshot();
+      const updatedParams = { ...comp.params, analogMarker: marker || undefined };
+      set((state) => ({
+        components: {
+          ...state.components,
+          [componentId]: { ...comp, params: updatedParams },
+        },
+        nodes: state.nodes.map((n) =>
+          n.id === componentId
+            ? { ...n, data: { ...(n.data as any), params: updatedParams } }
+            : n
+        ),
+      }));
+      syncNetlistWithDispatcher();
+    },
     showAICircuitModal: false,
     setShowAICircuitModal: (show: boolean) => set({ showAICircuitModal: show }),
 

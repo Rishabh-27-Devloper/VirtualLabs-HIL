@@ -102,6 +102,19 @@ export interface ComponentParams {
   speakerVolume?: number; // 0 to 100%
   speakerMuted?: boolean;
   ohmmeterRange?: 'auto' | '200' | '2k' | '20k' | '200k' | '2M' | '20M';
+  // High-Frequency Parasitic Capacitances
+  cbe?: number; // BJT Base-Emitter capacitance (F)
+  cbc?: number; // BJT Base-Collector Miller capacitance (F)
+  cgs?: number; // MOSFET Gate-Source capacitance (F)
+  cgd?: number; // MOSFET Gate-Drain Miller capacitance (F)
+  cds?: number; // MOSFET Drain-Source capacitance (F)
+  cj?: number;  // Diode / Zener / LED junction capacitance (F)
+  cp?: number;  // Component parallel parasitic capacitance (F)
+  // Analog Circuit Variable Marker (Truth Table style)
+  analogMarker?: {
+    label: string;      // e.g., 'Vi', 'Vo', 'Vcc', 'Vce', 'Ic', 'f'
+    variableKey: string;// e.g., 'voltage', 'v_drop', 'vce', 'ic', 'amplitude', 'frequency'
+  };
 }
 
 export interface CurvePoint {
@@ -129,6 +142,14 @@ export interface CurveAnalysisConfig {
   yExpression: string;
 }
 
+export interface DerivedVariable {
+  id: string;
+  name: string;        // e.g., 'Gv', 'Av_dB', 'P_diss'
+  formula: string;     // e.g., 'Vo / Vi', '20 * log10(abs(Vo / Vi))'
+  unit: string;        // e.g., 'V/V', 'dB', 'W'
+  description?: string;
+}
+
 export type WaveformType = 'sine' | 'cosine' | 'square' | 'triangle' | 'sawtooth' | 'pulse' | 'dc';
 export type HilPinType = 'adc' | 'gpio_in' | 'dac' | 'pwm' | 'gpio_out';
 
@@ -142,6 +163,7 @@ export interface ComponentInstance {
 
 export interface ComponentSimState {
   nodeVoltages: Record<string, number>;
+  nodeRmsVoltages?: Record<string, number>;
   branchCurrents: Record<string, number>;
   power?: number;
   logicState?: Record<string, LogicLevel>;
@@ -153,6 +175,7 @@ export interface NetNode {
   id: string;
   connectedPins: { componentId: string; pinId: string }[];
   voltage?: number;
+  rmsVoltage?: number;
   current?: number;
   isGround?: boolean;
 }
@@ -187,6 +210,7 @@ export interface SimulationConfig {
   vol: number;
   voh: number;
   performanceMode?: boolean;
+  recordProbes?: boolean;
 }
 
 export interface SimulationState {
@@ -198,6 +222,7 @@ export interface SimulationState {
   probeData: Record<string, ProbeTimeSeries>;
   logicTraces: Record<string, LogicTrace>;
   componentStates?: Record<string, ComponentSimState>;
+  netRmsVoltages?: Record<string, number>;
 }
 
 export interface ProbeTimeSeries {
